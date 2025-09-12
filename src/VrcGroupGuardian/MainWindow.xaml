@@ -1,0 +1,13 @@
+<Window x:Class="VrcGroupGuardian.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VRC Group Guardian" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <TextBlock Text="VRC Group Guardian" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"
+                   FontSize="24" 
+                   FontWeight="Bold"/>
+    </Grid>
+</Window>

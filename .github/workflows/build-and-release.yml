@@ -1,0 +1,456 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: './src/VrcGroupGuardian/VrcGroupGuardian.csproj'
+  
+jobs:
+  test:
+    name: Run Tests
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build solution
+      run: dotnet build --configuration Release --no-restore
+      
+    - name: Run unit tests
+      run: dotnet test tests/unit/ --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
+      
+    - name: Run integration tests
+      run: dotnet test tests/integration/ --configuration Release --no-build --verbosity normal
+      
+    - name: Run contract tests
+      run: dotnet test tests/contract/ --configuration Release --no-build --verbosity normal
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: TestResults/
+        
+  security-scan:
+    name: Security Analysis
+    runs-on: windows-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Run security analysis
+      run: |
+        dotnet tool install --global security-scan
+        security-scan ${{ env.PROJECT_PATH }}
+      continue-on-error: true
+      
+    - name: OWASP Dependency Check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'VrcGroupGuardian'
+        path: '.'
+        format: 'SARIF'
+        
+    - name: Upload security results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: reports/
+        
+  build:
+    name: Build Application
+    runs-on: windows-latest
+    needs: [test, security-scan]
+    
+    strategy:
+      matrix:
+        runtime: [win-x64, win-x86, win-arm64]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build and publish
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} \
+          --configuration Release \
+          --runtime ${{ matrix.runtime }} \
+          --self-contained true \
+          --output ./publish/${{ matrix.runtime }}/ \
+          -p:PublishSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:EnableCompressionInSingleFile=true \
+          -p:DebugType=embedded \
+          -p:AssemblyVersion=1.0.${{ github.run_number }}.0 \
+          -p:FileVersion=1.0.${{ github.run_number }}.0 \
+          -p:InformationalVersion=1.0.${{ github.run_number }}+${{ github.sha }}
+          
+    - name: Generate file hashes
+      run: |
+        $hash = Get-FileHash -Path "./publish/${{ matrix.runtime }}/VrcGroupGuardian.exe" -Algorithm SHA256
+        $hash.Hash | Out-File -FilePath "./publish/${{ matrix.runtime }}/VrcGroupGuardian.exe.sha256"
+        Write-Host "SHA256: $($hash.Hash)"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ matrix.runtime }}
+        path: ./publish/${{ matrix.runtime }}/
+        retention-days: 30
+        
+  sign-executable:
+    name: Code Signing
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: build-*
+        path: ./artifacts/
+        
+    - name: Setup code signing
+      run: |
+        # Install SignTool (part of Windows SDK)
+        choco install windows-sdk-10 -y
+        
+    - name: Sign executables
+      env:
+        SIGN_CERT: ${{ secrets.CODE_SIGNING_CERT }}
+        SIGN_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+        TIMESTAMP_SERVER: http://timestamp.digicert.com
+      run: |
+        # Import certificate
+        $certBytes = [System.Convert]::FromBase64String($env:SIGN_CERT)
+        $certPath = "$env:TEMP\codesign.pfx"
+        [System.IO.File]::WriteAllBytes($certPath, $certBytes)
+        
+        # Sign each executable
+        $runtimes = @('win-x64', 'win-x86', 'win-arm64')
+        foreach ($runtime in $runtimes) {
+          $exePath = "./artifacts/build-$runtime/VrcGroupGuardian.exe"
+          if (Test-Path $exePath) {
+            Write-Host "Signing $exePath"
+            & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign `
+              /f $certPath `
+              /p $env:SIGN_PASSWORD `
+              /t $env:TIMESTAMP_SERVER `
+              /fd SHA256 `
+              /td SHA256 `
+              /d "VRC Group Guardian" `
+              /du "https://github.com/${{ github.repository }}" `
+              $exePath
+              
+            # Verify signature
+            & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" verify /pa $exePath
+            
+            # Update hash after signing
+            $hash = Get-FileHash -Path $exePath -Algorithm SHA256
+            $hash.Hash | Out-File -FilePath "$exePath.sha256"
+          }
+        }
+        
+        # Clean up certificate
+        Remove-Item $certPath -Force
+        
+    - name: Upload signed artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-executables
+        path: ./artifacts/
+        
+  create-installer:
+    name: Create Installer
+    runs-on: windows-latest
+    needs: sign-executable
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download signed artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: signed-executables
+        path: ./signed/
+        
+    - name: Setup NSIS
+      run: |
+        choco install nsis -y
+        
+    - name: Create installer script
+      run: |
+        $version = "${{ github.ref_name }}" -replace "^v", ""
+        $installerScript = @"
+        !define APP_NAME "VRC Group Guardian"
+        !define APP_VERSION "$version"
+        !define APP_PUBLISHER "VRC Group Guardian Project"
+        !define APP_URL "https://github.com/${{ github.repository }}"
+        !define APP_EXE "VrcGroupGuardian.exe"
+        
+        Name "`${APP_NAME} `${APP_VERSION}"
+        OutFile "VrcGroupGuardian-Setup-`${APP_VERSION}.exe"
+        InstallDir "`$PROGRAMFILES64\VrcGroupGuardian"
+        RequestExecutionLevel admin
+        
+        !include "MUI2.nsh"
+        
+        !define MUI_ABORTWARNING
+        !define MUI_ICON "assets\icon.ico"
+        !define MUI_UNICON "assets\icon.ico"
+        
+        !insertmacro MUI_PAGE_WELCOME
+        !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+        !insertmacro MUI_PAGE_DIRECTORY
+        !insertmacro MUI_PAGE_INSTFILES
+        !insertmacro MUI_PAGE_FINISH
+        
+        !insertmacro MUI_UNPAGE_WELCOME
+        !insertmacro MUI_UNPAGE_CONFIRM
+        !insertmacro MUI_UNPAGE_INSTFILES
+        !insertmacro MUI_UNPAGE_FINISH
+        
+        !insertmacro MUI_LANGUAGE "English"
+        
+        Section "Install"
+          SetOutPath "`$INSTDIR"
+          File "signed\build-win-x64\VrcGroupGuardian.exe"
+          File "signed\build-win-x64\VrcGroupGuardian.exe.sha256"
+          File "README.md"
+          File "LICENSE.txt"
+          
+          CreateDirectory "`$SMPROGRAMS\VRC Group Guardian"
+          CreateShortCut "`$SMPROGRAMS\VRC Group Guardian\VRC Group Guardian.lnk" "`$INSTDIR\VrcGroupGuardian.exe"
+          CreateShortCut "`$DESKTOP\VRC Group Guardian.lnk" "`$INSTDIR\VrcGroupGuardian.exe"
+          
+          WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian" "DisplayName" "`${APP_NAME}"
+          WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian" "DisplayVersion" "`${APP_VERSION}"
+          WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian" "Publisher" "`${APP_PUBLISHER}"
+          WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian" "URLInfoAbout" "`${APP_URL}"
+          WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian" "UninstallString" "`$INSTDIR\uninstall.exe"
+          WriteUninstaller "`$INSTDIR\uninstall.exe"
+        SectionEnd
+        
+        Section "Uninstall"
+          Delete "`$INSTDIR\VrcGroupGuardian.exe"
+          Delete "`$INSTDIR\VrcGroupGuardian.exe.sha256"
+          Delete "`$INSTDIR\README.md"
+          Delete "`$INSTDIR\LICENSE.txt"
+          Delete "`$INSTDIR\uninstall.exe"
+          RMDir "`$INSTDIR"
+          
+          Delete "`$SMPROGRAMS\VRC Group Guardian\VRC Group Guardian.lnk"
+          RMDir "`$SMPROGRAMS\VRC Group Guardian"
+          Delete "`$DESKTOP\VRC Group Guardian.lnk"
+          
+          DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VrcGroupGuardian"
+        SectionEnd
+        "@
+        
+        $installerScript | Out-File -FilePath "installer.nsi" -Encoding UTF8
+        
+    - name: Build installer
+      run: |
+        makensis installer.nsi
+        
+    - name: Sign installer
+      env:
+        SIGN_CERT: ${{ secrets.CODE_SIGNING_CERT }}
+        SIGN_PASSWORD: ${{ secrets.CODE_SIGNING_PASSWORD }}
+      run: |
+        # Import certificate
+        $certBytes = [System.Convert]::FromBase64String($env:SIGN_CERT)
+        $certPath = "$env:TEMP\codesign.pfx"
+        [System.IO.File]::WriteAllBytes($certPath, $certBytes)
+        
+        # Sign installer
+        $version = "${{ github.ref_name }}" -replace "^v", ""
+        $installerPath = "VrcGroupGuardian-Setup-$version.exe"
+        
+        & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign `
+          /f $certPath `
+          /p $env:SIGN_PASSWORD `
+          /t http://timestamp.digicert.com `
+          /fd SHA256 `
+          /td SHA256 `
+          /d "VRC Group Guardian Setup" `
+          /du "https://github.com/${{ github.repository }}" `
+          $installerPath
+          
+        # Generate hash
+        $hash = Get-FileHash -Path $installerPath -Algorithm SHA256
+        $hash.Hash | Out-File -FilePath "$installerPath.sha256"
+        
+        # Clean up certificate
+        Remove-Item $certPath -Force
+        
+    - name: Upload installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: installer
+        path: |
+          VrcGroupGuardian-Setup-*.exe
+          VrcGroupGuardian-Setup-*.exe.sha256
+          
+  release:
+    name: Create Release
+    runs-on: windows-latest
+    needs: [sign-executable, create-installer]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
+    - name: Prepare release assets
+      run: |
+        $version = "${{ github.ref_name }}" -replace "^v", ""
+        
+        # Create release directory
+        New-Item -ItemType Directory -Path "release" -Force
+        
+        # Copy signed executables
+        $runtimes = @('win-x64', 'win-x86', 'win-arm64')
+        foreach ($runtime in $runtimes) {
+          $sourcePath = "signed-executables/build-$runtime"
+          if (Test-Path $sourcePath) {
+            Copy-Item "$sourcePath/VrcGroupGuardian.exe" "release/VrcGroupGuardian-$version-$runtime.exe"
+            Copy-Item "$sourcePath/VrcGroupGuardian.exe.sha256" "release/VrcGroupGuardian-$version-$runtime.exe.sha256"
+          }
+        }
+        
+        # Copy installer
+        if (Test-Path "installer/VrcGroupGuardian-Setup-$version.exe") {
+          Copy-Item "installer/VrcGroupGuardian-Setup-$version.exe" "release/"
+          Copy-Item "installer/VrcGroupGuardian-Setup-$version.exe.sha256" "release/"
+        }
+        
+        # Create checksums file
+        Get-ChildItem "release/*.exe" | ForEach-Object {
+          $hash = Get-FileHash -Path $_.FullName -Algorithm SHA256
+          "$($hash.Hash)  $($_.Name)" | Out-File -FilePath "release/checksums.txt" -Append -Encoding UTF8
+        }
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        $version = "${{ github.ref_name }}"
+        $notes = @"
+        # VRC Group Guardian $version
+        
+        ## What's New
+        - Complete VRChat group moderation solution
+        - Automated policy enforcement with grace periods
+        - Member management (kick/ban operations)
+        - Comprehensive audit logging and CSV export
+        - Desktop notifications for enforcement events
+        - High-contrast accessibility theme support
+        - Performance optimizations and error handling
+        - Dry run mode for safe testing
+        
+        ## System Requirements
+        - Windows 10/11 x64, x86, or ARM64
+        - .NET Runtime (bundled in self-contained executable)
+        - VRChat account with group moderation permissions
+        
+        ## Installation Options
+        
+        ### Option 1: Installer (Recommended)
+        Download and run `VrcGroupGuardian-Setup-$($version -replace "^v", "").exe`
+        
+        ### Option 2: Portable Executable
+        Download the appropriate executable for your system:
+        - **x64**: `VrcGroupGuardian-$($version -replace "^v", "")-win-x64.exe` (Most common)
+        - **x86**: `VrcGroupGuardian-$($version -replace "^v", "")-win-x86.exe` (32-bit systems)
+        - **ARM64**: `VrcGroupGuardian-$($version -replace "^v", "")-win-arm64.exe` (ARM-based systems)
+        
+        ## Security
+        All executables are digitally signed and include SHA256 checksums for verification.
+        
+        ## Getting Started
+        1. Download and install the application
+        2. Run VRC Group Guardian
+        3. Log in with your VRChat credentials
+        4. Follow the setup wizard to configure your group and policies
+        5. Review the built-in quickstart guide for detailed usage instructions
+        
+        ## Support
+        - Documentation: [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
+        - Issues: [GitHub Issues](https://github.com/${{ github.repository }}/issues)
+        - Discussions: [GitHub Discussions](https://github.com/${{ github.repository }}/discussions)
+        "@
+        
+        $notes | Out-File -FilePath "release-notes.md" -Encoding UTF8
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: VRC Group Guardian ${{ github.ref_name }}
+        body_path: release-notes.md
+        files: |
+          release/*
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-') }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Update latest release info
+      run: |
+        $version = "${{ github.ref_name }}" -replace "^v", ""
+        $releaseInfo = @{
+          version = $version
+          tag = "${{ github.ref_name }}"
+          published_at = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+          download_url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/VrcGroupGuardian-Setup-$version.exe"
+        }
+        
+        $releaseInfo | ConvertTo-Json | Out-File -FilePath "latest-release.json" -Encoding UTF8
+        
+    - name: Notify deployment
+      run: |
+        Write-Host "🚀 Release ${{ github.ref_name }} has been published successfully!"
+        Write-Host "📦 Assets uploaded: $(Get-ChildItem release/*.exe | Measure-Object | Select-Object -ExpandProperty Count) executables"
+        Write-Host "🔒 All executables are digitally signed"
+        Write-Host "📋 Release notes and checksums included"

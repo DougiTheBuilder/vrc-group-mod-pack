@@ -1,0 +1,422 @@
+openapi: 3.0.3
+info:
+  title: VRChat API Contracts - Group Guardian
+  description: API contracts for VRChat integration used by Group Guardian
+  version: 1.0.0
+  
+servers:
+  - url: https://vrchat.com/api/1
+    description: VRChat Production API
+
+paths:
+  /auth/user:
+    get:
+      summary: Get current user info (login check)
+      description: Validates authentication and returns user details
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: Invalid or expired authentication
+        '429':
+          description: Rate limit exceeded
+
+  /auth/user/logout:
+    put:
+      summary: Logout current user
+      description: Invalidates current session
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Not authenticated
+
+  /groups/{groupId}/instances:
+    get:
+      summary: List group instances
+      description: Get all active instances owned by the group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of group instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupInstance'
+        '403':
+          description: Insufficient permissions to view group instances
+        '404':
+          description: Group not found
+        '429':
+          description: Rate limit exceeded
+
+  /groups/{groupId}/members:
+    get:
+      summary: List group members
+      description: Get paginated list of group members
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+        - name: n
+          in: query
+          description: Number of members to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 60
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: roleId
+          in: query
+          description: Filter by role ID
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of group members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupMember'
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Group not found
+
+  /groups/{groupId}/members/{userId}:
+    delete:
+      summary: Kick member from group
+      description: Remove a user from the group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^usr_[a-f0-9-]+$'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Member kicked successfully
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Group or member not found
+
+  /groups/{groupId}/bans:
+    post:
+      summary: Ban user from group
+      description: Ban a user from the group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  pattern: '^usr_[a-f0-9-]+$'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User banned successfully
+        '403':
+          description: Insufficient permissions
+
+  /groups/{groupId}/bans/{userId}:
+    delete:
+      summary: Unban user from group
+      description: Remove ban from user
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^usr_[a-f0-9-]+$'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User unbanned successfully
+        '403':
+          description: Insufficient permissions
+
+  /instances/{worldId}:{instanceId}:
+    delete:
+      summary: Close instance
+      description: Close a world instance (requires ownership or admin rights)
+      parameters:
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^wrld_[a-f0-9-]+$'
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Instance closed successfully
+        '403':
+          description: Insufficient permissions to close instance
+        '404':
+          description: Instance not found
+        '429':
+          description: Rate limit exceeded
+
+  /groups/{groupId}/permissions:
+    get:
+      summary: Get group permissions
+      description: Get permissions for the current user in the group
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User permissions in group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupPermissions'
+
+  /groups/{groupId}/auditLogs:
+    get:
+      summary: Get group audit logs
+      description: Get audit trail of group actions
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^grp_[a-f0-9-]+$'
+        - name: n
+          in: query
+          description: Number of logs to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 60
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Group audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authToken
+
+  schemas:
+    CurrentUser:
+      type: object
+      required:
+        - id
+        - displayName
+        - username
+      properties:
+        id:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+          example: "usr_12345678-1234-1234-1234-123456789012"
+        displayName:
+          type: string
+          example: "Moderator User"
+        username:
+          type: string
+          example: "moderatoruser"
+
+    GroupInstance:
+      type: object
+      required:
+        - instanceId
+        - world
+        - type
+        - ageGate
+        - userCount
+        - capacity
+        - region
+        - createdAt
+      properties:
+        instanceId:
+          type: string
+          pattern: '^wrld_[a-f0-9-]+:[0-9]+~[a-zA-Z0-9()]+$'
+          example: "wrld_12345678-1234-1234-1234-123456789012:12345~group(grp_12345678-1234-1234-1234-123456789012)"
+        world:
+          type: object
+          properties:
+            id:
+              type: string
+              pattern: '^wrld_[a-f0-9-]+$'
+            name:
+              type: string
+            authorName:
+              type: string
+        type:
+          type: string
+          enum: [group, groupplus, grouppublic]
+        ageGate:
+          type: boolean
+          description: Whether instance requires 18+ verification
+        userCount:
+          type: integer
+          minimum: 0
+        capacity:
+          type: integer
+          minimum: 1
+        region:
+          type: string
+          example: "us"
+        createdAt:
+          type: string
+          format: date-time
+
+    GroupMember:
+      type: object
+      required:
+        - id
+        - displayName
+        - username
+        - roleId
+        - joinedAt
+      properties:
+        id:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        displayName:
+          type: string
+        username:
+          type: string
+        roleId:
+          type: string
+        roleName:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+        lastActivity:
+          type: string
+          format: date-time
+
+    GroupPermissions:
+      type: object
+      required:
+        - permissions
+      properties:
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["group-instance-moderate", "group-instance-manage", "group-member-moderate"]
+
+    AuditLog:
+      type: object
+      required:
+        - id
+        - createdAt
+        - eventType
+        - actorId
+        - targetId
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        eventType:
+          type: string
+          example: "group.instance.kick"
+        actorId:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        actorDisplayName:
+          type: string
+        targetId:
+          type: string
+        targetDisplayName:
+          type: string
+        data:
+          type: object

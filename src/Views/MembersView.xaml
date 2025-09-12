@@ -1,0 +1,368 @@
+<UserControl x:Class="VrcGroupGuardian.Views.MembersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="900">
+    
+    <UserControl.Resources>
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="MinWidth" Value="60"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        
+        <Style x:Key="RoleTagStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Background" Value="#E3F2FD"/>
+            <Setter Property="BorderBrush" Value="#2196F3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        
+        <Style x:Key="StatusIndicatorStyle" TargetType="Rectangle">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="RadiusX" Value="6"/>
+            <Setter Property="RadiusY" Value="6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Search and Filter Panel -->
+        <Border Grid.Row="0" 
+                Background="#F8F9FA" 
+                BorderBrush="#E9ECEF" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,0,0,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBox x:Name="SearchTextBox"
+                             Style="{StaticResource SearchTextBoxStyle}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="300"
+                             VerticalAlignment="Center">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding SearchCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    
+                    <Button Content="🔍 Search" 
+                            Command="{Binding SearchCommand}"
+                            Padding="10,8"
+                            Margin="10,0"
+                            Background="#007BFF"
+                            Foreground="White"/>
+                    
+                    <Button Content="Clear" 
+                            Command="{Binding ClearSearchCommand}"
+                            Padding="10,8"
+                            Margin="5,0"
+                            Background="#6C757D"
+                            Foreground="White"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0">
+                    <Label Content="Filter by Role:" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding AvailableRoles}"
+                              SelectedItem="{Binding SelectedRoleFilter}"
+                              Width="120"
+                              VerticalAlignment="Center"/>
+                    
+                    <Label Content="Status:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding AvailableStatuses}"
+                              SelectedItem="{Binding SelectedStatusFilter}"
+                              Width="100"
+                              VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="🔄 Refresh" 
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource ActionButtonStyle}"/>
+                    <Button Content="📊 Export" 
+                            Command="{Binding ExportCommand}"
+                            Style="{StaticResource ActionButtonStyle}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Bulk Actions Panel -->
+        <Border Grid.Row="1" 
+                Background="#FFF3CD" 
+                BorderBrush="#FFEAA7" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,0,0,15"
+                Visibility="{Binding HasSelectedMembers, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" 
+                           Text="{Binding SelectedMembersText}" 
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"/>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Kick Selected" 
+                            Command="{Binding BulkKickCommand}"
+                            Background="#FFC107"
+                            Foreground="Black"
+                            Padding="12,6"
+                            Margin="5,0"/>
+                    <Button Content="Ban Selected" 
+                            Command="{Binding BulkBanCommand}"
+                            Background="#DC3545"
+                            Foreground="White"
+                            Padding="12,6"
+                            Margin="5,0"/>
+                    <Button Content="Clear Selection" 
+                            Command="{Binding ClearSelectionCommand}"
+                            Background="#6C757D"
+                            Foreground="White"
+                            Padding="12,6"
+                            Margin="5,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Members Data Grid -->
+        <DataGrid Grid.Row="2" 
+                  x:Name="MembersDataGrid"
+                  ItemsSource="{Binding FilteredMembers}"
+                  SelectedItem="{Binding SelectedMember}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  SelectionMode="Extended"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="25"
+                  AlternatingRowBackground="#F8F9FA"
+                  BorderBrush="#E9ECEF"
+                  BorderThickness="1"
+                  EnableRowVirtualization="True"
+                  EnableColumnVirtualization="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.IsContainerVirtualizable="True">
+            
+            <DataGrid.RowHeaderTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}"
+                              Command="{Binding DataContext.ToggleSelectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              CommandParameter="{Binding}"
+                              HorizontalAlignment="Center"/>
+                </DataTemplate>
+            </DataGrid.RowHeaderTemplate>
+            
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Status" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Rectangle Style="{StaticResource StatusIndicatorStyle}"
+                                     Fill="{Binding Status, Converter={StaticResource StatusToColorConverter}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridTemplateColumn Header="Avatar" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Width="40" Height="40" 
+                                    CornerRadius="20"
+                                    Background="#E0E0E0"
+                                    ClipToBounds="True">
+                                <Image Source="{Binding ProfileImageUrl}" 
+                                       Stretch="UniformToFill"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridTextColumn Header="Display Name" 
+                                    Binding="{Binding DisplayName}" 
+                                    Width="150"/>
+                
+                <DataGridTextColumn Header="Username" 
+                                    Binding="{Binding Username}" 
+                                    Width="120"/>
+                
+                <DataGridTemplateColumn Header="Roles" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ItemsControl ItemsSource="{Binding Roles}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource RoleTagStyle}">
+                                            <TextBlock Text="{Binding}" 
+                                                     FontSize="10" 
+                                                     Foreground="#2196F3"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridCheckBoxColumn Header="Online" 
+                                        Binding="{Binding IsOnline}" 
+                                        Width="60"/>
+                
+                <DataGridTextColumn Header="Join Date" 
+                                    Binding="{Binding JoinedAt, StringFormat=\{0:MM/dd/yyyy\}}" 
+                                    Width="100"/>
+                
+                <DataGridTextColumn Header="Last Seen" 
+                                    Binding="{Binding LastSeenAt, StringFormat=\{0:MM/dd HH:mm\}}" 
+                                    Width="110"/>
+                
+                <DataGridTextColumn Header="Instances" 
+                                    Binding="{Binding InstanceCount}" 
+                                    Width="80"/>
+                
+                <DataGridTemplateColumn Header="Actions" Width="160">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="View" 
+                                        Command="{Binding DataContext.ViewMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Background="#17A2B8"
+                                        Foreground="White"/>
+                                <Button Content="Kick" 
+                                        Command="{Binding DataContext.KickMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Background="#FFC107"
+                                        Foreground="Black"/>
+                                <Button Content="Ban" 
+                                        Command="{Binding DataContext.BanMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Background="#DC3545"
+                                        Foreground="White"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Statistics Bar -->
+        <Border Grid.Row="3" 
+                Background="#F8F9FA" 
+                BorderBrush="#E9ECEF" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,15,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding TotalMembers}" 
+                             FontSize="18" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"/>
+                    <TextBlock Text="Total Members" 
+                             FontSize="11" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding OnlineMembers}" 
+                             FontSize="18" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#28A745"/>
+                    <TextBlock Text="Online" 
+                             FontSize="11" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding OfflineMembers}" 
+                             FontSize="18" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#6C757D"/>
+                    <TextBlock Text="Offline" 
+                             FontSize="11" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding FilteredCount}" 
+                             FontSize="18" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#007BFF"/>
+                    <TextBlock Text="Showing" 
+                             FontSize="11" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding SelectedCount}" 
+                             FontSize="18" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="{Binding SelectedCount, Converter={StaticResource CountToColorConverter}}"/>
+                    <TextBlock Text="Selected" 
+                             FontSize="11" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

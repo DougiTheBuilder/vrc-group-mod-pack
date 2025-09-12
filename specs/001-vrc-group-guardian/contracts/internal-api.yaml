@@ -1,0 +1,624 @@
+openapi: 3.0.3
+info:
+  title: Group Guardian Internal API Contracts
+  description: Internal service contracts for Group Guardian desktop application
+  version: 1.0.0
+
+paths:
+  # Auth Service CLI Interface
+  /auth/login:
+    post:
+      summary: Authenticate with VRChat
+      description: CLI interface for authentication service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                totpCode:
+                  type: string
+                  description: TOTP 2FA code if required
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: Invalid credentials
+        '423':
+          description: Account locked or requires email verification
+
+  /auth/status:
+    get:
+      summary: Get authentication status
+      description: Check if currently authenticated
+      responses:
+        '200':
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+
+  /auth/logout:
+    post:
+      summary: Sign out
+      description: Clear stored credentials and invalidate session
+      responses:
+        '200':
+          description: Logout successful
+
+  # Group Service CLI Interface  
+  /groups/select:
+    post:
+      summary: Select group for monitoring
+      description: Set the group to monitor for enforcement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupId
+              properties:
+                groupId:
+                  type: string
+                  pattern: '^grp_[a-f0-9-]+$'
+      responses:
+        '200':
+          description: Group selected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupInfo'
+        '403':
+          description: Insufficient permissions for group
+
+  /groups/permissions:
+    get:
+      summary: Get current user permissions
+      description: Get permissions for currently selected group
+      responses:
+        '200':
+          description: User permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionCheck'
+
+  # Instance Service CLI Interface
+  /instances/list:
+    get:
+      summary: List active group instances
+      description: Get all instances for the selected group
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstanceInfo'
+
+  /instances/close:
+    post:
+      summary: Close instance
+      description: Manually close a group instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instanceId
+              properties:
+                instanceId:
+                  type: string
+                reason:
+                  type: string
+                  default: "Manual closure by moderator"
+      responses:
+        '200':
+          description: Instance closed successfully
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Instance not found
+
+  # Enforcement Service CLI Interface
+  /enforcement/policy:
+    get:
+      summary: Get enforcement policy
+      description: Get current enforcement settings
+      responses:
+        '200':
+          description: Current policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicySettings'
+
+    post:
+      summary: Update enforcement policy
+      description: Update enforcement settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicySettings'
+      responses:
+        '200':
+          description: Policy updated successfully
+
+  /enforcement/status:
+    get:
+      summary: Get enforcement status
+      description: Get current enforcement engine status
+      responses:
+        '200':
+          description: Enforcement status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementStatus'
+
+  /enforcement/cancel:
+    post:
+      summary: Cancel pending closure
+      description: Cancel auto-closure for specific instance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instanceId
+              properties:
+                instanceId:
+                  type: string
+                reason:
+                  type: string
+                  default: "Cancelled by moderator"
+      responses:
+        '200':
+          description: Closure cancelled successfully
+        '404':
+          description: No pending closure for instance
+
+  # Member Service CLI Interface
+  /members/list:
+    get:
+      summary: List group members
+      description: Get paginated list of group members
+      parameters:
+        - name: search
+          in: query
+          description: Search term for member names
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter by role
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Number of members to return
+          schema:
+            type: integer
+            default: 60
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemberInfo'
+
+  /members/kick:
+    post:
+      summary: Kick member from group
+      description: Remove member from group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  pattern: '^usr_[a-f0-9-]+$'
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Member kicked successfully
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Member not found
+
+  /members/ban:
+    post:
+      summary: Ban member from group
+      description: Ban member from group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  pattern: '^usr_[a-f0-9-]+$'
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Member banned successfully
+        '403':
+          description: Insufficient permissions
+
+  /members/unban:
+    post:
+      summary: Unban member from group
+      description: Remove ban from member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  pattern: '^usr_[a-f0-9-]+$'
+      responses:
+        '200':
+          description: Member unbanned successfully
+        '403':
+          description: Insufficient permissions
+
+  # Audit Service CLI Interface
+  /audit/logs:
+    get:
+      summary: Get audit logs
+      description: Get local audit log entries
+      parameters:
+        - name: limit
+          in: query
+          description: Number of entries to return
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            default: 0
+        - name: actionType
+          in: query
+          description: Filter by action type
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: Start date for filtering
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: End date for filtering
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
+
+  /audit/export:
+    get:
+      summary: Export audit logs
+      description: Export audit logs as CSV
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSV export data
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  schemas:
+    AuthResult:
+      type: object
+      required:
+        - success
+        - userId
+        - displayName
+        - requiresTwoFactor
+      properties:
+        success:
+          type: boolean
+        userId:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        displayName:
+          type: string
+        username:
+          type: string
+        requiresTwoFactor:
+          type: boolean
+        tokenExpiry:
+          type: string
+          format: date-time
+
+    AuthStatus:
+      type: object
+      required:
+        - authenticated
+      properties:
+        authenticated:
+          type: boolean
+        userId:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        displayName:
+          type: string
+        tokenExpiry:
+          type: string
+          format: date-time
+        sessionValid:
+          type: boolean
+
+    GroupInfo:
+      type: object
+      required:
+        - groupId
+        - groupName
+      properties:
+        groupId:
+          type: string
+          pattern: '^grp_[a-f0-9-]+$'
+        groupName:
+          type: string
+        memberCount:
+          type: integer
+        description:
+          type: string
+
+    PermissionCheck:
+      type: object
+      required:
+        - canModerateInstances
+        - canManageInstances
+        - canModerateMember
+      properties:
+        canModerateInstances:
+          type: boolean
+        canManageInstances:
+          type: boolean
+        canModerateMember:
+          type: boolean
+        permissions:
+          type: array
+          items:
+            type: string
+
+    InstanceInfo:
+      type: object
+      required:
+        - instanceId
+        - worldName
+        - instanceType
+        - ageGated
+        - userCount
+        - maxUsers
+        - region
+        - createdAt
+        - status
+      properties:
+        instanceId:
+          type: string
+        worldName:
+          type: string
+        worldId:
+          type: string
+        instanceType:
+          type: string
+          enum: [Group, GroupPlus, GroupPublic]
+        ageGated:
+          type: boolean
+        userCount:
+          type: integer
+        maxUsers:
+          type: integer
+        region:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [Active, Flagged, ClosingCountdown, Closed]
+        countdownSeconds:
+          type: integer
+          description: Seconds remaining before auto-closure
+        lastUpdated:
+          type: string
+          format: date-time
+
+    PolicySettings:
+      type: object
+      required:
+        - enforcementEnabled
+        - gracePeriodSeconds
+        - pollingIntervalSeconds
+      properties:
+        enforcementEnabled:
+          type: boolean
+        gracePeriodSeconds:
+          type: integer
+          minimum: 60
+          maximum: 300
+        pollingIntervalSeconds:
+          type: integer
+          minimum: 45
+          maximum: 90
+        notificationsEnabled:
+          type: boolean
+        rateLimitRequestsPerMinute:
+          type: integer
+          minimum: 1
+          maximum: 100
+        cacheExpiryMinutes:
+          type: integer
+          minimum: 1
+          maximum: 60
+
+    EnforcementStatus:
+      type: object
+      required:
+        - active
+        - policiesChecked
+        - lastPollTime
+      properties:
+        active:
+          type: boolean
+        policiesChecked:
+          type: integer
+        violationsFound:
+          type: integer
+        lastPollTime:
+          type: string
+          format: date-time
+        nextPollTime:
+          type: string
+          format: date-time
+        rateLimited:
+          type: boolean
+        errorMessage:
+          type: string
+
+    MemberInfo:
+      type: object
+      required:
+        - userId
+        - displayName
+        - username
+        - role
+        - joinedAt
+      properties:
+        userId:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        displayName:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+        lastSeen:
+          type: string
+          format: date-time
+        permissionLevel:
+          type: string
+          enum: [Member, Moderator, Admin, Owner]
+        canKick:
+          type: boolean
+        canBan:
+          type: boolean
+
+    AuditEntry:
+      type: object
+      required:
+        - id
+        - timestamp
+        - actionType
+        - targetType
+        - targetId
+        - success
+      properties:
+        id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        actionType:
+          type: string
+          enum: [AutoClose, ManualClose, CancelClose, KickMember, BanMember, UnbanMember, PolicyChange, Login, Logout]
+        actorUserId:
+          type: string
+          pattern: '^usr_[a-f0-9-]+$'
+        actorDisplayName:
+          type: string
+        targetType:
+          type: string
+          enum: [Instance, Member, Policy, Session]
+        targetId:
+          type: string
+        targetDisplayName:
+          type: string
+        details:
+          type: string
+        apiResponse:
+          type: string
+        success:
+          type: boolean
+        errorMessage:
+          type: string

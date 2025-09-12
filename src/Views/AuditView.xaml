@@ -1,0 +1,367 @@
+<UserControl x:Class="VrcGroupGuardian.Views.AuditView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="900">
+    
+    <UserControl.Resources>
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style x:Key="FilterComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="5,0"/>
+        </Style>
+        
+        <Style x:Key="SeverityTagStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="2"/>
+        </Style>
+        
+        <Style x:Key="DatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="5,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Filter and Export Panel -->
+        <Border Grid.Row="0" 
+                Background="#F8F9FA" 
+                BorderBrush="#E9ECEF" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,0,0,15">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Date Range and Filters -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Label Grid.Column="0" Content="From:" VerticalAlignment="Center"/>
+                    <DatePicker Grid.Column="1" 
+                                Style="{StaticResource DatePickerStyle}"
+                                SelectedDate="{Binding FromDate}"/>
+                    
+                    <Label Grid.Column="2" Content="To:" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <DatePicker Grid.Column="3" 
+                                Style="{StaticResource DatePickerStyle}"
+                                SelectedDate="{Binding ToDate}"/>
+                    
+                    <Label Grid.Column="4" Content="Action:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                    <ComboBox Grid.Column="5" 
+                              Style="{StaticResource FilterComboBoxStyle}"
+                              ItemsSource="{Binding AvailableActions}"
+                              SelectedItem="{Binding SelectedActionFilter}"
+                              HorizontalAlignment="Left"/>
+                    
+                    <Button Grid.Column="6" 
+                            Content="🔍 Apply Filters" 
+                            Command="{Binding ApplyFiltersCommand}"
+                            Background="#007BFF"
+                            Foreground="White"
+                            Padding="12,8"/>
+                </Grid>
+                
+                <!-- Additional Filters and Actions -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Label Grid.Column="0" Content="Severity:" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="1" 
+                              Style="{StaticResource FilterComboBoxStyle}"
+                              ItemsSource="{Binding AvailableSeverities}"
+                              SelectedItem="{Binding SelectedSeverityFilter}"/>
+                    
+                    <Label Grid.Column="2" Content="User:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                    <TextBox Grid.Column="3" 
+                             Text="{Binding UserFilter, UpdateSourceTrigger=PropertyChanged}"
+                             Width="150"
+                             VerticalAlignment="Center"
+                             Margin="0,0,10,0"/>
+                    
+                    <StackPanel Grid.Column="5" Orientation="Horizontal">
+                        <Button Content="🔄 Refresh" 
+                                Command="{Binding RefreshCommand}"
+                                Style="{StaticResource ActionButtonStyle}"/>
+                        <Button Content="📊 Export CSV" 
+                                Command="{Binding ExportCsvCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#28A745"
+                                Foreground="White"/>
+                        <Button Content="📄 Export JSON" 
+                                Command="{Binding ExportJsonCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#17A2B8"
+                                Foreground="White"/>
+                        <Button Content="🗑️ Clear Old" 
+                                Command="{Binding ClearOldRecordsCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#FFC107"
+                                Foreground="Black"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Quick Stats Panel -->
+        <Border Grid.Row="1" 
+                Background="#FFF3CD" 
+                BorderBrush="#FFEAA7" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,0,0,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding TotalRecords}" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"/>
+                    <TextBlock Text="Total Records" 
+                             FontSize="10" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding TodayRecords}" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#007BFF"/>
+                    <TextBlock Text="Today" 
+                             FontSize="10" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding WarningRecords}" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#FFC107"/>
+                    <TextBlock Text="Warnings" 
+                             FontSize="10" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding ErrorRecords}" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#DC3545"/>
+                    <TextBlock Text="Errors" 
+                             FontSize="10" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="4" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding FilteredRecords}" 
+                             FontSize="16" 
+                             FontWeight="Bold" 
+                             HorizontalAlignment="Center"
+                             Foreground="#28A745"/>
+                    <TextBlock Text="Showing" 
+                             FontSize="10" 
+                             Foreground="#666" 
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Audit Records Data Grid -->
+        <DataGrid Grid.Row="2" 
+                  x:Name="AuditDataGrid"
+                  ItemsSource="{Binding FilteredAuditRecords}"
+                  SelectedItem="{Binding SelectedRecord}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  RowHeaderWidth="0"
+                  AlternatingRowBackground="#F8F9FA"
+                  BorderBrush="#E9ECEF"
+                  BorderThickness="1"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+            
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Timestamp" 
+                                    Binding="{Binding Timestamp, StringFormat=\{0:MM/dd/yyyy HH:mm:ss\}}" 
+                                    Width="140"/>
+                
+                <DataGridTemplateColumn Header="Severity" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource SeverityTagStyle}"
+                                    Background="{Binding Severity, Converter={StaticResource SeverityToColorConverter}}">
+                                <TextBlock Text="{Binding Severity}" 
+                                         FontSize="10" 
+                                         FontWeight="Bold"
+                                         Foreground="White"
+                                         HorizontalAlignment="Center"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridTextColumn Header="Action" 
+                                    Binding="{Binding Action}" 
+                                    Width="120"/>
+                
+                <DataGridTextColumn Header="User" 
+                                    Binding="{Binding Username}" 
+                                    Width="120"/>
+                
+                <DataGridTextColumn Header="Target" 
+                                    Binding="{Binding TargetName}" 
+                                    Width="140"/>
+                
+                <DataGridTextColumn Header="Description" 
+                                    Binding="{Binding Description}" 
+                                    Width="*"
+                                    MinWidth="200"/>
+                
+                <DataGridTextColumn Header="Source" 
+                                    Binding="{Binding Source}" 
+                                    Width="100"/>
+                
+                <DataGridTemplateColumn Header="Details" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="View" 
+                                    Command="{Binding DataContext.ViewDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#17A2B8"
+                                    Foreground="White"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+            
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Severity}" Value="Error">
+                            <Setter Property="Background" Value="#FFEBEE"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                            <Setter Property="Background" Value="#FFF8E1"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+
+        <!-- Pagination and Status Bar -->
+        <Border Grid.Row="3" 
+                Background="#F8F9FA" 
+                BorderBrush="#E9ECEF" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Padding="15"
+                Margin="0,15,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" 
+                           Text="{Binding StatusText}" 
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="#666"/>
+                
+                <StackPanel Grid.Column="1" 
+                           Orientation="Horizontal" 
+                           VerticalAlignment="Center"
+                           Margin="0,0,15,0">
+                    <TextBlock Text="Page size:" 
+                             VerticalAlignment="Center" 
+                             Margin="0,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding AvailablePageSizes}"
+                              SelectedItem="{Binding PageSize}"
+                              Width="60"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="◄◄" 
+                            Command="{Binding FirstPageCommand}"
+                            Style="{StaticResource ActionButtonStyle}"
+                            IsEnabled="{Binding CanGoToPreviousPage}"/>
+                    <Button Content="◄" 
+                            Command="{Binding PreviousPageCommand}"
+                            Style="{StaticResource ActionButtonStyle}"
+                            IsEnabled="{Binding CanGoToPreviousPage}"/>
+                    
+                    <TextBlock Text="{Binding CurrentPageText}" 
+                             VerticalAlignment="Center"
+                             Margin="10,0"/>
+                    
+                    <Button Content="►" 
+                            Command="{Binding NextPageCommand}"
+                            Style="{StaticResource ActionButtonStyle}"
+                            IsEnabled="{Binding CanGoToNextPage}"/>
+                    <Button Content="►►" 
+                            Command="{Binding LastPageCommand}"
+                            Style="{StaticResource ActionButtonStyle}"
+                            IsEnabled="{Binding CanGoToNextPage}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
