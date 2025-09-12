@@ -78,12 +78,12 @@
 - [x] T038 Members service with kick/ban operations in src/Services/Members/MembersService.cs (depends on T033, T035)
 - [x] T039 Audit service with local logging & export in src/Services/Audit/AuditService.cs
 
-## Phase 3.6: Service CLI Interfaces
-- [ ] T040 [P] Auth service CLI in src/Services/Auth/Program.cs (CLI entry point)
-- [ ] T041 [P] Instance service CLI in src/Services/Instances/Program.cs 
-- [ ] T042 [P] Member service CLI in src/Services/Members/Program.cs
-- [ ] T043 [P] Audit service CLI in src/Services/Audit/Program.cs
-- [ ] T044 [P] Enforcement service CLI in src/Services/Enforcement/Program.cs
+## Phase 3.6: Service CLI Interfaces ✅ COMPLETED
+- [x] T040 [P] Auth service CLI in src/Services/Auth/Program.cs (CLI entry point)
+- [x] T041 [P] Instance service CLI in src/Services/Instances/Program.cs 
+- [x] T042 [P] Member service CLI in src/Services/Members/Program.cs
+- [x] T043 [P] Audit service CLI in src/Services/Audit/Program.cs
+- [x] T044 [P] Enforcement service CLI in src/Services/Enforcement/Program.cs
 
 ## Phase 3.7: WPF UI Implementation (Epic F)
 - [ ] T045 MainWindow XAML layout with left navigation in src/Views/MainWindow.xaml
