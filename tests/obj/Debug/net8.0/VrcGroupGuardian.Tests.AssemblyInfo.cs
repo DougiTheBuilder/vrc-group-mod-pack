@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VrcGroupGuardian.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7beeebe5b15cc852094d5c147ae201a9c89d5fa4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e83a63d838c9a18fda001420aaa4a58e438c5775")]
 [assembly: System.Reflection.AssemblyProductAttribute("VrcGroupGuardian.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VrcGroupGuardian.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

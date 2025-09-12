@@ -63,11 +63,11 @@
 - [x] T027 [P] PolicyConfiguration entity model in src/Models/PolicyConfiguration.cs
 - [x] T028 [P] Enumerations (InstanceType, InstanceStatus, etc.) in src/Models/Enums.cs
 
-## Phase 3.4: Infrastructure Services (Epic A continued)
-- [ ] T029 [P] DPAPI/Credential Manager wrapper in src/Infrastructure/SecureStorage.cs
-- [ ] T030 [P] HttpClient factory with Polly configuration in src/Infrastructure/VrchatHttpClientFactory.cs  
-- [ ] T031 [P] Rate limiting service with token bucket in src/Infrastructure/RateLimitService.cs
-- [ ] T032 [P] Settings store with local file persistence in src/Infrastructure/SettingsStore.cs
+## Phase 3.4: Infrastructure Services (Epic A continued) ✅ COMPLETED
+- [x] T029 [P] DPAPI/Credential Manager wrapper in src/Infrastructure/SecureStorage.cs
+- [x] T030 [P] HttpClient factory with Polly configuration in src/Infrastructure/VrchatHttpClientFactory.cs  
+- [x] T031 [P] Rate limiting service with token bucket in src/Infrastructure/RateLimitService.cs
+- [x] T032 [P] Settings store with local file persistence in src/Infrastructure/SettingsStore.cs
 
 ## Phase 3.5: Business Services (Epics B, C, D, E)
 - [ ] T033 VrcApi service library in src/Services/VrcApi/VrcApiService.cs (depends on T030, T031)
