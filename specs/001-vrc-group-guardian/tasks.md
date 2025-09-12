@@ -55,13 +55,13 @@
 - [x] T021 [P] Audit trail & compliance integration test in tests/integration/AuditTrailTests.cs
 - [x] T022 [P] Error handling & rate limiting integration test in tests/integration/ErrorHandlingTests.cs
 
-## Phase 3.3: Core Models (Only after tests are failing)
-- [ ] T023 [P] GroupInstance entity model in src/Models/GroupInstance.cs
-- [ ] T024 [P] GroupMember entity model in src/Models/GroupMember.cs
-- [ ] T025 [P] AuditRecord entity model in src/Models/AuditRecord.cs
-- [ ] T026 [P] AuthenticationSession entity model in src/Models/AuthenticationSession.cs
-- [ ] T027 [P] PolicyConfiguration entity model in src/Models/PolicyConfiguration.cs
-- [ ] T028 [P] Enumerations (InstanceType, InstanceStatus, etc.) in src/Models/Enums.cs
+## Phase 3.3: Core Models (Only after tests are failing) ✅ COMPLETED
+- [x] T023 [P] GroupInstance entity model in src/Models/GroupInstance.cs
+- [x] T024 [P] GroupMember entity model in src/Models/GroupMember.cs
+- [x] T025 [P] AuditRecord entity model in src/Models/AuditRecord.cs
+- [x] T026 [P] AuthenticationSession entity model in src/Models/AuthenticationSession.cs
+- [x] T027 [P] PolicyConfiguration entity model in src/Models/PolicyConfiguration.cs
+- [x] T028 [P] Enumerations (InstanceType, InstanceStatus, etc.) in src/Models/Enums.cs
 
 ## Phase 3.4: Infrastructure Services (Epic A continued)
 - [ ] T029 [P] DPAPI/Credential Manager wrapper in src/Infrastructure/SecureStorage.cs
