@@ -32,28 +32,28 @@
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
-### Contract Tests (VRChat API)
-- [ ] T006 [P] VRChat auth contract test in tests/contract/VrchatApiTests/AuthEndpointTests.cs
-- [ ] T007 [P] VRChat group instances contract test in tests/contract/VrchatApiTests/GroupInstancesTests.cs  
-- [ ] T008 [P] VRChat group members contract test in tests/contract/VrchatApiTests/GroupMembersTests.cs
-- [ ] T009 [P] VRChat instance closure contract test in tests/contract/VrchatApiTests/InstanceClosureTests.cs
-- [ ] T010 [P] VRChat permissions contract test in tests/contract/VrchatApiTests/PermissionsTests.cs
+### Contract Tests (VRChat API) ✅ COMPLETED
+- [x] T006 [P] VRChat auth contract test in tests/contract/VrchatApiTests/AuthEndpointTests.cs
+- [x] T007 [P] VRChat group instances contract test in tests/contract/VrchatApiTests/GroupInstancesTests.cs  
+- [x] T008 [P] VRChat group members contract test in tests/contract/VrchatApiTests/GroupMembersTests.cs
+- [x] T009 [P] VRChat instance closure contract test in tests/contract/VrchatApiTests/InstanceClosureTests.cs
+- [x] T010 [P] VRChat permissions contract test in tests/contract/VrchatApiTests/PermissionsTests.cs
 
-### Contract Tests (Internal Services)
-- [ ] T011 [P] Auth service CLI contract test in tests/contract/InternalApiTests/AuthServiceTests.cs
-- [ ] T012 [P] Instance service CLI contract test in tests/contract/InternalApiTests/InstanceServiceTests.cs
-- [ ] T013 [P] Member service CLI contract test in tests/contract/InternalApiTests/MemberServiceTests.cs
-- [ ] T014 [P] Audit service CLI contract test in tests/contract/InternalApiTests/AuditServiceTests.cs
-- [ ] T015 [P] Enforcement service CLI contract test in tests/contract/InternalApiTests/EnforcementServiceTests.cs
+### Contract Tests (Internal Services) ✅ COMPLETED
+- [x] T011 [P] Auth service CLI contract test in tests/contract/InternalApiTests/AuthServiceTests.cs
+- [x] T012 [P] Instance service CLI contract test in tests/contract/InternalApiTests/InstanceServiceTests.cs
+- [x] T013 [P] Member service CLI contract test in tests/contract/InternalApiTests/MemberServiceTests.cs
+- [x] T014 [P] Audit service CLI contract test in tests/contract/InternalApiTests/AuditServiceTests.cs
+- [x] T015 [P] Enforcement service CLI contract test in tests/contract/InternalApiTests/EnforcementServiceTests.cs
 
-### Integration Tests (User Scenarios)
-- [ ] T016 [P] Policy configuration & group selection integration test in tests/integration/PolicyConfigurationTests.cs
-- [ ] T017 [P] Instance monitoring & detection integration test in tests/integration/InstanceMonitoringTests.cs
-- [ ] T018 [P] Auto-closure with grace period integration test in tests/integration/AutoClosureTests.cs
-- [ ] T019 [P] Manual instance management integration test in tests/integration/ManualInstanceManagementTests.cs
-- [ ] T020 [P] Member management integration test in tests/integration/MemberManagementTests.cs
-- [ ] T021 [P] Audit trail & compliance integration test in tests/integration/AuditTrailTests.cs
-- [ ] T022 [P] Error handling & rate limiting integration test in tests/integration/ErrorHandlingTests.cs
+### Integration Tests (User Scenarios) ✅ COMPLETED
+- [x] T016 [P] Policy configuration & group selection integration test in tests/integration/PolicyConfigurationTests.cs
+- [x] T017 [P] Instance monitoring & detection integration test in tests/integration/InstanceMonitoringTests.cs
+- [x] T018 [P] Auto-closure with grace period integration test in tests/integration/AutoClosureTests.cs
+- [x] T019 [P] Manual instance management integration test in tests/integration/ManualInstanceManagementTests.cs
+- [x] T020 [P] Member management integration test in tests/integration/MemberManagementTests.cs
+- [x] T021 [P] Audit trail & compliance integration test in tests/integration/AuditTrailTests.cs
+- [x] T022 [P] Error handling & rate limiting integration test in tests/integration/ErrorHandlingTests.cs
 
 ## Phase 3.3: Core Models (Only after tests are failing)
 - [ ] T023 [P] GroupInstance entity model in src/Models/GroupInstance.cs

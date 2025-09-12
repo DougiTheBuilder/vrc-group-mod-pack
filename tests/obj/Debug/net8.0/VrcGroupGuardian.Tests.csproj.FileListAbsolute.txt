@@ -1,0 +1,6 @@
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.csproj.AssemblyReference.cache
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.GeneratedMSBuildEditorConfig.editorconfig
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.AssemblyInfoInputs.cache
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.AssemblyInfo.cs
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.csproj.CoreCompileInputs.cache
+/home/dougithebuilder/projects/vrc-group-mod-pack/tests/obj/Debug/net8.0/VrcGroupGuardian.Tests.sourcelink.json
