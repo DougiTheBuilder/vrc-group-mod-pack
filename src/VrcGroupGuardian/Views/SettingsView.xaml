@@ -1,0 +1,407 @@
+<UserControl x:Class="VrcGroupGuardian.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="900">
+    
+    <UserControl.Resources>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#2196F3"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        
+        <Style x:Key="SettingsGroupStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+        </Style>
+        
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style x:Key="StatusIndicatorStyle" TargetType="Rectangle">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="RadiusX" Value="6"/>
+            <Setter Property="RadiusY" Value="6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+        <StackPanel>
+            
+            <!-- Authentication Section -->
+            <Border Style="{StaticResource SettingsGroupStyle}">
+                <StackPanel>
+                    <TextBlock Text="🔐 Authentication" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid Margin="0,0,0,15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <Rectangle Grid.Column="0" 
+                                   Style="{StaticResource StatusIndicatorStyle}"
+                                   Fill="{Binding IsAuthenticated, Converter={StaticResource BoolToStatusColorConverter}}"/>
+                        
+                        <TextBlock Grid.Column="1" 
+                                   Text="{Binding AuthenticationStatusText}" 
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"/>
+                        
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Button Content="{Binding LoginButtonText}" 
+                                    Command="{Binding ToggleLoginCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="{Binding LoginButtonColor}"
+                                    Foreground="White"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <Expander Header="Login Credentials" IsExpanded="False" Margin="0,10,0,0">
+                        <Grid Margin="0,10,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <Label Grid.Row="0" Grid.Column="0" Content="Username:"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" 
+                                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,10,5"/>
+                            
+                            <Label Grid.Row="1" Grid.Column="0" Content="Password:"/>
+                            <PasswordBox Grid.Row="1" Grid.Column="1" 
+                                         x:Name="PasswordBox"
+                                         Margin="0,0,10,5"/>
+                            
+                            <Label Grid.Row="2" Grid.Column="0" Content="2FA Code:"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" 
+                                     Text="{Binding TwoFactorCode, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,10,5"
+                                     MaxLength="6"
+                                     Width="100"
+                                     HorizontalAlignment="Left"/>
+                            
+                            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="Login" 
+                                        Command="{Binding LoginCommand}"
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Background="#28A745"
+                                        Foreground="White"/>
+                                <Button Content="Logout" 
+                                        Command="{Binding LogoutCommand}"
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Background="#DC3545"
+                                        Foreground="White"/>
+                            </StackPanel>
+                        </Grid>
+                    </Expander>
+                </StackPanel>
+            </Border>
+            
+            <!-- Group Selection Section -->
+            <Border Style="{StaticResource SettingsGroupStyle}">
+                <StackPanel>
+                    <TextBlock Text="👥 Group Selection" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <Label Grid.Row="0" Grid.Column="0" Content="Current Group:"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" 
+                                   Text="{Binding CurrentGroupName}" 
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"/>
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Content="Available Groups:"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" 
+                                  ItemsSource="{Binding AvailableGroups}"
+                                  SelectedItem="{Binding SelectedGroup}"
+                                  DisplayMemberPath="GroupName"
+                                  Margin="0,5"/>
+                        
+                        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
+                            <Button Content="Select" 
+                                    Command="{Binding SelectGroupCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#007BFF"
+                                    Foreground="White"/>
+                            <Button Content="Refresh" 
+                                    Command="{Binding RefreshGroupsCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#6C757D"
+                                    Foreground="White"/>
+                        </StackPanel>
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                   Text="{Binding GroupSelectionStatus}" 
+                                   Margin="0,5,0,0"
+                                   Foreground="#666"
+                                   FontSize="11"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- Policy Configuration Section -->
+            <Border Style="{StaticResource SettingsGroupStyle}">
+                <StackPanel>
+                    <TextBlock Text="⚙️ Policy Configuration" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <Label Grid.Row="0" Grid.Column="0" Content="Grace Period (seconds):"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" 
+                                 Text="{Binding GracePeriodSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="80" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" 
+                                   Text="Time before automatic instance closure"
+                                   VerticalAlignment="Center"
+                                   Foreground="#666"
+                                   FontSize="11"/>
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Content="Polling Interval (seconds):"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" 
+                                 Text="{Binding PollingIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="80" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" 
+                                   Text="How often to check for new instances"
+                                   VerticalAlignment="Center"
+                                   Foreground="#666"
+                                   FontSize="11"/>
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Content="Rate Limit (requests/minute):"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" 
+                                 Text="{Binding RateLimitRequestsPerMinute, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="80" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Row="2" Grid.Column="2" 
+                                   Text="API request rate limit to VRChat"
+                                   VerticalAlignment="Center"
+                                   Foreground="#666"
+                                   FontSize="11"/>
+                        
+                        <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Enable Desktop Notifications" 
+                                  IsChecked="{Binding NotificationsEnabled}" 
+                                  Margin="0,10,0,5"/>
+                        
+                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Auto-export Audit Logs" 
+                                  IsChecked="{Binding ExportAuditLogs}" 
+                                  Margin="0,5"/>
+                        
+                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Dry Run Mode (No actual API calls)" 
+                                  IsChecked="{Binding DryRunMode}" 
+                                  Margin="0,5"/>
+                        
+                        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" 
+                                   Orientation="Horizontal" Margin="0,15,0,0">
+                            <Button Content="Save Policy" 
+                                    Command="{Binding SavePolicyCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#28A745"
+                                    Foreground="White"/>
+                            <Button Content="Reset to Defaults" 
+                                    Command="{Binding ResetPolicyCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#FFC107"
+                                    Foreground="Black"/>
+                            <Button Content="Import Policy" 
+                                    Command="{Binding ImportPolicyCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#17A2B8"
+                                    Foreground="White"/>
+                            <Button Content="Export Policy" 
+                                    Command="{Binding ExportPolicyCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#6C757D"
+                                    Foreground="White"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- Application Settings Section -->
+            <Border Style="{StaticResource SettingsGroupStyle}">
+                <StackPanel>
+                    <TextBlock Text="🖥️ Application Settings" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Start with Windows" 
+                                  IsChecked="{Binding StartWithWindows}" 
+                                  Margin="0,5"/>
+                        
+                        <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Minimize to System Tray" 
+                                  IsChecked="{Binding MinimizeToTray}" 
+                                  Margin="0,5"/>
+                        
+                        <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                  Content="Enable High Contrast Theme" 
+                                  IsChecked="{Binding HighContrastTheme}" 
+                                  Margin="0,5"/>
+                        
+                        <Label Grid.Row="3" Grid.Column="0" Content="Log Level:"/>
+                        <ComboBox Grid.Row="3" Grid.Column="1" 
+                                  ItemsSource="{Binding AvailableLogLevels}"
+                                  SelectedItem="{Binding SelectedLogLevel}"
+                                  Width="120"
+                                  HorizontalAlignment="Left"/>
+                        
+                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
+                                   Orientation="Horizontal" Margin="0,15,0,0">
+                            <Button Content="Open Log Folder" 
+                                    Command="{Binding OpenLogFolderCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#17A2B8"
+                                    Foreground="White"/>
+                            <Button Content="Clear Cache" 
+                                    Command="{Binding ClearCacheCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#FFC107"
+                                    Foreground="Black"/>
+                            <Button Content="Reset All Settings" 
+                                    Command="{Binding ResetAllSettingsCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#DC3545"
+                                    Foreground="White"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- System Information Section -->
+            <Border Style="{StaticResource SettingsGroupStyle}">
+                <StackPanel>
+                    <TextBlock Text="ℹ️ System Information" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <Label Grid.Row="0" Grid.Column="0" Content="Application Version:"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" 
+                                   Text="{Binding ApplicationVersion}" 
+                                   VerticalAlignment="Center"/>
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Content="Build Date:"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" 
+                                   Text="{Binding BuildDate}" 
+                                   VerticalAlignment="Center"/>
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Content=".NET Version:"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" 
+                                   Text="{Binding DotNetVersion}" 
+                                   VerticalAlignment="Center"/>
+                        
+                        <Label Grid.Row="3" Grid.Column="0" Content="OS Version:"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" 
+                                   Text="{Binding OsVersion}" 
+                                   VerticalAlignment="Center"/>
+                        
+                        <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
+                                   Orientation="Horizontal" Margin="0,15,0,0">
+                            <Button Content="Check for Updates" 
+                                    Command="{Binding CheckForUpdatesCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#007BFF"
+                                    Foreground="White"/>
+                            <Button Content="View License" 
+                                    Command="{Binding ViewLicenseCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#6C757D"
+                                    Foreground="White"/>
+                            <Button Content="Report Issue" 
+                                    Command="{Binding ReportIssueCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Background="#28A745"
+                                    Foreground="White"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <!-- Status Bar -->
+            <Border Background="#F8F9FA" 
+                    BorderBrush="#E9ECEF" 
+                    BorderThickness="1" 
+                    CornerRadius="4"
+                    Padding="15"
+                    Margin="0,5,0,20">
+                <TextBlock Text="{Binding StatusText}" 
+                           FontSize="12"
+                           Foreground="#666"/>
+            </Border>
+            
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
