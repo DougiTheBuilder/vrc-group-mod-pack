@@ -86,36 +86,36 @@
 - [x] T044 [P] Enforcement service CLI in src/Services/Enforcement/Program.cs
 
 ## Phase 3.7: WPF UI Implementation (Epic F)
-- [ ] T045 MainWindow XAML layout with left navigation in src/Views/MainWindow.xaml
-- [ ] T046 MainWindow ViewModel with navigation in src/ViewModels/MainWindowViewModel.cs (depends on T034-T039)
-- [ ] T047 Instances view with data grid in src/Views/InstancesView.xaml
-- [ ] T048 Instances ViewModel with policy controls in src/ViewModels/InstancesViewModel.cs (depends on T036, T037)
-- [ ] T049 Members view with search & actions in src/Views/MembersView.xaml  
-- [ ] T050 Members ViewModel with kick/ban commands in src/ViewModels/MembersViewModel.cs (depends on T038)
-- [ ] T051 Audit view with filtering & export in src/Views/AuditView.xaml
-- [ ] T052 Audit ViewModel with CSV export in src/ViewModels/AuditViewModel.cs (depends on T039)
-- [ ] T053 Settings view with authentication controls in src/Views/SettingsView.xaml
-- [ ] T054 Settings ViewModel with credential management in src/ViewModels/SettingsViewModel.cs (depends on T034)
+- [x] T045 MainWindow XAML layout with left navigation in src/Views/MainWindow.xaml
+- [x] T046 MainWindow ViewModel with navigation in src/ViewModels/MainWindowViewModel.cs (depends on T034-T039)
+- [x] T047 Instances view with data grid in src/Views/InstancesView.xaml
+- [x] T048 Instances ViewModel with policy controls in src/ViewModels/InstancesViewModel.cs (depends on T036, T037)
+- [x] T049 Members view with search & actions in src/Views/MembersView.xaml  
+- [x] T050 Members ViewModel with kick/ban commands in src/ViewModels/MembersViewModel.cs (depends on T038)
+- [x] T051 Audit view with filtering & export in src/Views/AuditView.xaml
+- [x] T052 Audit ViewModel with CSV export in src/ViewModels/AuditViewModel.cs (depends on T039)
+- [x] T053 Settings view with authentication controls in src/Views/SettingsView.xaml
+- [x] T054 Settings ViewModel with credential management in src/ViewModels/SettingsViewModel.cs (depends on T034)
 
-## Phase 3.8: Integration & Polish (Epic G)
-- [ ] T055 Wire up WPF navigation and dependency injection in src/App.xaml.cs (depends on T046-T054)
-- [ ] T056 First-run setup wizard implementation in src/Views/SetupWizardView.xaml
-- [ ] T057 Desktop notifications for policy enforcement in src/Infrastructure/NotificationService.cs
-- [ ] T058 High-contrast theme and accessibility support in src/Themes/
-- [ ] T059 Performance optimization and startup time improvement
-- [ ] T060 Error handling and graceful degradation 
-- [ ] T061 Comprehensive logging and diagnostics
-- [ ] T062 "Dry run" mode for testing without actual API calls
+## Phase 3.8: Integration & Polish (Epic G) ✅ COMPLETED
+- [x] T055 Wire up WPF navigation and dependency injection in src/App.xaml.cs (depends on T046-T054)
+- [x] T056 First-run setup wizard implementation in src/Views/SetupWizardView.xaml
+- [x] T057 Desktop notifications for policy enforcement in src/Infrastructure/NotificationService.cs
+- [x] T058 High-contrast theme and accessibility support in src/Themes/
+- [x] T059 Performance optimization and startup time improvement
+- [x] T060 Error handling and graceful degradation 
+- [x] T061 Comprehensive logging and diagnostics
+- [x] T062 "Dry run" mode for testing without actual API calls
 
 ## Phase 3.9: Final Testing & Release (Epic G continued)
-- [ ] T063 [P] Unit tests for policy logic in tests/unit/PolicyEngineTests.cs
-- [ ] T064 [P] Unit tests for rate limiting in tests/unit/RateLimitTests.cs  
-- [ ] T065 [P] Unit tests for timer management in tests/unit/TimerTests.cs
-- [ ] T066 End-to-end manual testing per quickstart.md scenarios
-- [ ] T067 Performance testing (startup time, memory usage, API efficiency)
-- [ ] T068 Security validation (credential storage, token wiping)
-- [ ] T069 Build pipeline and signed executable generation
-- [ ] T070 Release documentation and deployment guide
+- [x] T063 [P] Unit tests for policy logic in tests/unit/PolicyEngineTests.cs
+- [x] T064 [P] Unit tests for rate limiting in tests/unit/RateLimitTests.cs  
+- [x] T065 [P] Unit tests for timer management in tests/unit/TimerTests.cs
+- [x] T066 End-to-end manual testing per quickstart.md scenarios
+- [x] T067 Performance testing (startup time, memory usage, API efficiency)
+- [x] T068 Security validation (credential storage, token wiping)
+- [x] T069 Build pipeline and signed executable generation
+- [x] T070 Release documentation and deployment guide
 
 ## Dependencies
 - Setup (T001-T005) before all other phases

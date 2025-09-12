@@ -25,6 +25,7 @@ public class EnforcementService : IEnforcementService, IDisposable
 {
     private readonly IInstancesService _instancesService;
     private readonly ISettingsStore _settingsStore;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<EnforcementService> _logger;
     
     private readonly ConcurrentDictionary<string, EnforcementTimer> _enforcementTimers = new();
@@ -37,10 +38,15 @@ public class EnforcementService : IEnforcementService, IDisposable
     public event EventHandler<ClosureCancelledEventArgs>? ClosureCancelled;
     public event EventHandler<AutoCloseExecutedEventArgs>? AutoCloseExecuted;
 
-    public EnforcementService(IInstancesService instancesService, ISettingsStore settingsStore, ILogger<EnforcementService> logger)
+    public EnforcementService(
+        IInstancesService instancesService, 
+        ISettingsStore settingsStore, 
+        INotificationService notificationService,
+        ILogger<EnforcementService> logger)
     {
         _instancesService = instancesService;
         _settingsStore = settingsStore;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -71,6 +77,25 @@ public class EnforcementService : IEnforcementService, IDisposable
             _isActive = true;
             _logger.LogInformation("Started enforcement service with {GracePeriod}s grace period", 
                 _currentPolicy.GracePeriodSeconds);
+            
+            // Send notification about enforcement start
+            if (_currentPolicy.NotificationsEnabled)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _notificationService.ShowNotificationAsync(
+                            "Policy Enforcement Started",
+                            $"VRC Group Guardian is now monitoring and enforcing group instance policies with {_currentPolicy.GracePeriodSeconds}s grace period.",
+                            NotificationSeverity.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send notification for enforcement start");
+                    }
+                });
+            }
             
             return true;
         }
@@ -109,8 +134,27 @@ public class EnforcementService : IEnforcementService, IDisposable
             _enforcementTimers.Clear();
 
             _isActive = false;
-            _currentPolicy = null;
             
+            // Send notification about enforcement stop
+            if (_currentPolicy?.NotificationsEnabled == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _notificationService.ShowNotificationAsync(
+                            "Policy Enforcement Stopped",
+                            "VRC Group Guardian has stopped monitoring and enforcing group instance policies.",
+                            NotificationSeverity.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send notification for enforcement stop");
+                    }
+                });
+            }
+            
+            _currentPolicy = null;
             _logger.LogInformation("Stopped enforcement service");
             return true;
         }
@@ -301,6 +345,25 @@ public class EnforcementService : IEnforcementService, IDisposable
                 FlaggedAt = DateTime.UtcNow 
             });
 
+            // Send desktop notification if enabled
+            if (_currentPolicy?.NotificationsEnabled == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _notificationService.ShowNotificationAsync(
+                            "Instance Flagged",
+                            $"Instance '{instance.WorldName}' has been flagged for age-gated content and will be closed soon.",
+                            NotificationSeverity.Warning);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send notification for flagged instance {InstanceId}", instance.InstanceId);
+                    }
+                });
+            }
+
             // Schedule closure after grace period
             await ScheduleClosureAsync(instance);
         }
@@ -334,6 +397,26 @@ public class EnforcementService : IEnforcementService, IDisposable
             ScheduledFor = DateTime.UtcNow.Add(gracePeriod),
             Reason = "Age-gated world policy violation"
         });
+
+        // Send desktop notification if enabled
+        if (_currentPolicy?.NotificationsEnabled == true)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var scheduledTime = DateTime.UtcNow.Add(gracePeriod);
+                    await _notificationService.ShowNotificationAsync(
+                        "Instance Closure Scheduled",
+                        $"Instance '{instance.WorldName}' will be automatically closed at {scheduledTime:HH:mm:ss} ({gracePeriod.TotalMinutes:F1} minutes from now).",
+                        NotificationSeverity.Information);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send notification for scheduled closure {InstanceId}", instance.InstanceId);
+                }
+            });
+        }
     }
 
     private async Task ExecuteAutoCloseAsync(string instanceId)
@@ -355,6 +438,28 @@ public class EnforcementService : IEnforcementService, IDisposable
                 ExecutedAt = DateTime.UtcNow,
                 Reason = "Age-gated world policy violation"
             });
+
+            // Send desktop notification if enabled
+            if (_currentPolicy?.NotificationsEnabled == true)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var severity = success ? NotificationSeverity.Success : NotificationSeverity.Error;
+                        var title = success ? "Instance Closed Successfully" : "Instance Closure Failed";
+                        var message = success 
+                            ? $"Instance '{instance?.WorldName ?? instanceId}' has been automatically closed due to policy violation."
+                            : $"Failed to automatically close instance '{instance?.WorldName ?? instanceId}'. Manual intervention may be required.";
+                        
+                        await _notificationService.ShowNotificationAsync(title, message, severity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send notification for auto-close execution {InstanceId}", instanceId);
+                    }
+                });
+            }
 
             if (success)
             {

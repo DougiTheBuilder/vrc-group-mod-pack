@@ -25,6 +25,8 @@ public interface IVrcApiService
 public class VrcApiService : IVrcApiService, IDisposable
 {
     private readonly IVrchatHttpClientFactory _httpClientFactory;
+    private readonly ICacheService _cacheService;
+    private readonly IDryRunMode _dryRunMode;
     private readonly ILogger<VrcApiService> _logger;
     private readonly SemaphoreSlim _authLock = new(1, 1);
     
@@ -32,20 +34,24 @@ public class VrcApiService : IVrcApiService, IDisposable
     private string? _currentAuthToken;
     private DateTime _tokenExpiry = DateTime.MinValue;
 
-    public VrcApiService(IVrchatHttpClientFactory httpClientFactory, ILogger<VrcApiService> logger)
+    public VrcApiService(IVrchatHttpClientFactory httpClientFactory, ICacheService cacheService, IDryRunMode dryRunMode, ILogger<VrcApiService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _cacheService = cacheService;
+        _dryRunMode = dryRunMode;
         _logger = logger;
     }
 
     public async Task<AuthResult> LoginAsync(string username, string password)
     {
-        await _authLock.WaitAsync();
-        try
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            using var client = _httpClientFactory.CreateClient();
-            
-            var loginData = new { username, password };
+            await _authLock.WaitAsync();
+            try
+            {
+                using var client = _httpClientFactory.CreateClient();
+                
+                var loginData = new { username, password };
             var response = await client.PostAsJsonAsync("api/1/auth/user", loginData);
             
             if (!response.IsSuccessStatusCode)
@@ -103,22 +109,25 @@ public class VrcApiService : IVrcApiService, IDisposable
         {
             _logger.LogError(ex, "Login request failed with exception");
             return new AuthResult { Success = false, ErrorMessage = "Network error during login" };
-        }
-        finally
-        {
-            _authLock.Release();
-        }
+            }
+            finally
+            {
+                _authLock.Release();
+            }
+        }, new AuthResult { Success = true, AuthToken = "mock-token", RequiresTwoFactor = false }, "Login");
     }
 
     public async Task<AuthResult> VerifyTwoFactorAsync(string code)
     {
-        await _authLock.WaitAsync();
-        try
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            using var client = _httpClientFactory.CreateClient();
-            
-            var twoFactorData = new { code };
-            var response = await client.PostAsJsonAsync("api/1/auth/twofactorauth/totp/verify", twoFactorData);
+            await _authLock.WaitAsync();
+            try
+            {
+                using var client = _httpClientFactory.CreateClient();
+                
+                var twoFactorData = new { code };
+                var response = await client.PostAsJsonAsync("api/1/auth/twofactorauth/totp/verify", twoFactorData);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -155,267 +164,404 @@ public class VrcApiService : IVrcApiService, IDisposable
         {
             _logger.LogError(ex, "2FA verification failed with exception");
             return new AuthResult { Success = false, ErrorMessage = "Network error during 2FA verification" };
-        }
-        finally
-        {
-            _authLock.Release();
-        }
+            }
+            finally
+            {
+                _authLock.Release();
+            }
+        }, new AuthResult { Success = true, AuthToken = "mock-token", RequiresTwoFactor = false }, "VerifyTwoFactor");
     }
 
     public async Task<bool> LogoutAsync()
     {
-        await _authLock.WaitAsync();
-        try
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            if (_authenticatedClient != null && !string.IsNullOrEmpty(_currentAuthToken))
+            await _authLock.WaitAsync();
+            try
             {
-                try
+                if (_authenticatedClient != null && !string.IsNullOrEmpty(_currentAuthToken))
                 {
-                    await _authenticatedClient.PutAsync("api/1/logout", null);
+                    try
+                    {
+                        await _authenticatedClient.PutAsync("api/1/logout", null);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Logout API call failed, proceeding with local cleanup");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Logout API call failed, proceeding with local cleanup");
-                }
-            }
 
-            await ClearAuthAsync();
-            _logger.LogInformation("Logout completed");
-            return true;
-        }
-        finally
-        {
-            _authLock.Release();
-        }
+                await ClearAuthAsync();
+                _logger.LogInformation("Logout completed");
+                return true;
+            }
+            finally
+            {
+                _authLock.Release();
+            }
+        }, true, "Logout");
     }
 
     public async Task<List<GroupInstance>> GetGroupInstancesAsync(string groupId)
     {
-        var client = await GetAuthenticatedClientAsync();
-        if (client == null)
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            _logger.LogWarning("Not authenticated, cannot get group instances");
-            return new List<GroupInstance>();
-        }
-
-        try
-        {
-            var response = await client.GetAsync($"api/1/groups/{groupId}/instances");
-            if (!response.IsSuccessStatusCode)
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
             {
-                _logger.LogWarning("Failed to get group instances: {StatusCode}", response.StatusCode);
+                _logger.LogWarning("Not authenticated, cannot get group instances");
                 return new List<GroupInstance>();
             }
 
-            var content = await response.Content.ReadAsStringAsync();
-            using var document = JsonDocument.Parse(content);
-            
-            var instances = new List<GroupInstance>();
-            
-            if (document.RootElement.TryGetProperty("instances", out var instancesArray))
+            try
             {
-                foreach (var instanceElement in instancesArray.EnumerateArray())
+                var response = await client.GetAsync($"api/1/groups/{groupId}/instances");
+                if (!response.IsSuccessStatusCode)
                 {
-                    var instance = ParseGroupInstance(instanceElement);
-                    if (instance != null)
+                    _logger.LogWarning("Failed to get group instances: {StatusCode}", response.StatusCode);
+                    return new List<GroupInstance>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(content);
+                
+                var instances = new List<GroupInstance>();
+                
+                if (document.RootElement.TryGetProperty("instances", out var instancesArray))
+                {
+                    foreach (var instanceElement in instancesArray.EnumerateArray())
                     {
-                        instances.Add(instance);
+                        var instance = ParseGroupInstance(instanceElement);
+                        if (instance != null)
+                        {
+                            instances.Add(instance);
+                        }
                     }
                 }
-            }
 
-            return instances;
-        }
-        catch (Exception ex)
+                return instances;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get group instances for {GroupId}", groupId);
+                return new List<GroupInstance>();
+            }
+        }, new List<GroupInstance>
         {
-            _logger.LogError(ex, "Failed to get group instances for {GroupId}", groupId);
-            return new List<GroupInstance>();
-        }
+            new GroupInstance
+            {
+                InstanceId = "mock-instance-1",
+                WorldName = "Mock World Alpha",
+                WorldId = "wrld_mock_001",
+                InstanceType = InstanceType.Group,
+                UserCount = 5,
+                MaxUsers = 20,
+                Region = "us-west",
+                Status = InstanceStatus.Active,
+                LastUpdated = DateTime.UtcNow
+            },
+            new GroupInstance
+            {
+                InstanceId = "mock-instance-2",
+                WorldName = "Mock World Beta",
+                WorldId = "wrld_mock_002",
+                InstanceType = InstanceType.GroupPlus,
+                UserCount = 12,
+                MaxUsers = 40,
+                Region = "eu-west",
+                Status = InstanceStatus.Active,
+                LastUpdated = DateTime.UtcNow
+            }
+        }, "GetGroupInstances");
     }
 
     public async Task<List<GroupMember>> GetGroupMembersAsync(string groupId)
     {
-        var client = await GetAuthenticatedClientAsync();
-        if (client == null)
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            _logger.LogWarning("Not authenticated, cannot get group members");
-            return new List<GroupMember>();
-        }
-
-        try
-        {
-            var response = await client.GetAsync($"api/1/groups/{groupId}/members");
-            if (!response.IsSuccessStatusCode)
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
             {
-                _logger.LogWarning("Failed to get group members: {StatusCode}", response.StatusCode);
+                _logger.LogWarning("Not authenticated, cannot get group members");
                 return new List<GroupMember>();
             }
 
-            var content = await response.Content.ReadAsStringAsync();
-            using var document = JsonDocument.Parse(content);
-            
-            var members = new List<GroupMember>();
-            
-            if (document.RootElement.TryGetProperty("members", out var membersArray))
+            try
             {
-                foreach (var memberElement in membersArray.EnumerateArray())
+                var response = await client.GetAsync($"api/1/groups/{groupId}/members");
+                if (!response.IsSuccessStatusCode)
                 {
-                    var member = ParseGroupMember(memberElement);
-                    if (member != null)
+                    _logger.LogWarning("Failed to get group members: {StatusCode}", response.StatusCode);
+                    return new List<GroupMember>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(content);
+                
+                var members = new List<GroupMember>();
+                
+                if (document.RootElement.TryGetProperty("members", out var membersArray))
+                {
+                    foreach (var memberElement in membersArray.EnumerateArray())
                     {
-                        members.Add(member);
+                        var member = ParseGroupMember(memberElement);
+                        if (member != null)
+                        {
+                            members.Add(member);
+                        }
                     }
                 }
-            }
 
-            return members;
-        }
-        catch (Exception ex)
+                return members;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get group members for {GroupId}", groupId);
+                return new List<GroupMember>();
+            }
+        }, new List<GroupMember>
         {
-            _logger.LogError(ex, "Failed to get group members for {GroupId}", groupId);
-            return new List<GroupMember>();
-        }
+            new GroupMember
+            {
+                UserId = "usr_mock_admin_001",
+                DisplayName = "MockAdmin",
+                Username = "mockadmin",
+                Role = "Admin",
+                PermissionLevel = MemberPermissionLevel.Admin
+            },
+            new GroupMember
+            {
+                UserId = "usr_mock_member_002",
+                DisplayName = "MockMember1",
+                Username = "mockmember1",
+                Role = "Member",
+                PermissionLevel = MemberPermissionLevel.Member
+            },
+            new GroupMember
+            {
+                UserId = "usr_mock_mod_003",
+                DisplayName = "MockModerator",
+                Username = "mockmoderator",
+                Role = "Moderator",
+                PermissionLevel = MemberPermissionLevel.Moderator
+            }
+        }, "GetGroupMembers");
     }
 
     public async Task<bool> CloseInstanceAsync(string instanceId)
     {
-        var client = await GetAuthenticatedClientAsync();
-        if (client == null)
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            _logger.LogWarning("Not authenticated, cannot close instance");
-            return false;
-        }
-
-        try
-        {
-            var response = await client.DeleteAsync($"api/1/instances/{instanceId}");
-            var success = response.IsSuccessStatusCode;
-            
-            if (success)
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
             {
-                _logger.LogInformation("Successfully closed instance {InstanceId}", instanceId);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to close instance {InstanceId}: {StatusCode}", instanceId, response.StatusCode);
+                _logger.LogWarning("Not authenticated, cannot close instance");
+                return false;
             }
 
-            return success;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to close instance {InstanceId}", instanceId);
-            return false;
-        }
+            try
+            {
+                var response = await client.DeleteAsync($"api/1/instances/{instanceId}");
+                var success = response.IsSuccessStatusCode;
+                
+                if (success)
+                {
+                    _logger.LogInformation("Successfully closed instance {InstanceId}", instanceId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to close instance {InstanceId}: {StatusCode}", instanceId, response.StatusCode);
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to close instance {InstanceId}", instanceId);
+                return false;
+            }
+        }, true, "CloseInstance");
     }
 
     public async Task<MemberActionResult> KickGroupMemberAsync(string groupId, string userId)
     {
-        return await PerformMemberActionAsync(groupId, userId, "kick", 
-            () => _authenticatedClient!.DeleteAsync($"api/1/groups/{groupId}/members/{userId}"));
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
+        {
+            return await PerformMemberActionAsync(groupId, userId, "kick", 
+                () => _authenticatedClient!.DeleteAsync($"api/1/groups/{groupId}/members/{userId}"));
+        }, new MemberActionResult
+        {
+            Success = true,
+            UserId = userId,
+            Message = "Member kick successful (simulated)",
+            Reason = "kick"
+        }, "KickGroupMember");
     }
 
     public async Task<MemberActionResult> BanGroupMemberAsync(string groupId, string userId)
     {
-        return await PerformMemberActionAsync(groupId, userId, "ban", 
-            () => _authenticatedClient!.PostAsync($"api/1/groups/{groupId}/bans", 
-                JsonContent.Create(new { userId })));
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
+        {
+            return await PerformMemberActionAsync(groupId, userId, "ban", 
+                () => _authenticatedClient!.PostAsync($"api/1/groups/{groupId}/bans", 
+                    JsonContent.Create(new { userId })));
+        }, new MemberActionResult
+        {
+            Success = true,
+            UserId = userId,
+            Message = "Member ban successful (simulated)",
+            Reason = "ban"
+        }, "BanGroupMember");
     }
 
     public async Task<MemberActionResult> UnbanGroupMemberAsync(string groupId, string userId)
     {
-        return await PerformMemberActionAsync(groupId, userId, "unban", 
-            () => _authenticatedClient!.DeleteAsync($"api/1/groups/{groupId}/bans/{userId}"));
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
+        {
+            return await PerformMemberActionAsync(groupId, userId, "unban", 
+                () => _authenticatedClient!.DeleteAsync($"api/1/groups/{groupId}/bans/{userId}"));
+        }, new MemberActionResult
+        {
+            Success = true,
+            UserId = userId,
+            Message = "Member unban successful (simulated)",
+            Reason = "unban"
+        }, "UnbanGroupMember");
     }
 
     public async Task<List<string>> GetGroupPermissionsAsync(string groupId)
     {
-        var client = await GetAuthenticatedClientAsync();
-        if (client == null)
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            return new List<string>();
-        }
-
-        try
-        {
-            var response = await client.GetAsync($"api/1/groups/{groupId}/permissions");
-            if (!response.IsSuccessStatusCode)
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
             {
                 return new List<string>();
             }
 
-            var content = await response.Content.ReadAsStringAsync();
-            using var document = JsonDocument.Parse(content);
-            
-            var permissions = new List<string>();
-            
-            if (document.RootElement.TryGetProperty("permissions", out var permissionsArray))
+            try
             {
-                foreach (var permission in permissionsArray.EnumerateArray())
+                var response = await client.GetAsync($"api/1/groups/{groupId}/permissions");
+                if (!response.IsSuccessStatusCode)
                 {
-                    if (permission.TryGetString(out var permissionName))
+                    return new List<string>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(content);
+                
+                var permissions = new List<string>();
+                
+                if (document.RootElement.TryGetProperty("permissions", out var permissionsArray))
+                {
+                    foreach (var permission in permissionsArray.EnumerateArray())
                     {
-                        permissions.Add(permissionName);
+                        if (permission.TryGetString(out var permissionName))
+                        {
+                            permissions.Add(permissionName);
+                        }
                     }
                 }
-            }
 
-            return permissions;
-        }
-        catch (Exception ex)
+                return permissions;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get group permissions for {GroupId}", groupId);
+                return new List<string>();
+            }
+        }, new List<string>
         {
-            _logger.LogError(ex, "Failed to get group permissions for {GroupId}", groupId);
-            return new List<string>();
-        }
+            "group.manage.instances",
+            "group.manage.members",
+            "group.moderate",
+            "group.view.audit",
+            "group.ban.members",
+            "group.kick.members"
+        }, "GetGroupPermissions");
     }
 
     public async Task<List<AuditRecord>> GetGroupAuditLogsAsync(string groupId, int limit = 100)
     {
-        var client = await GetAuthenticatedClientAsync();
-        if (client == null)
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
-            return new List<AuditRecord>();
-        }
-
-        try
-        {
-            var response = await client.GetAsync($"api/1/groups/{groupId}/auditLogs?n={limit}");
-            if (!response.IsSuccessStatusCode)
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
             {
                 return new List<AuditRecord>();
             }
 
-            var content = await response.Content.ReadAsStringAsync();
-            using var document = JsonDocument.Parse(content);
-            
-            var auditRecords = new List<AuditRecord>();
-            
-            if (document.RootElement.TryGetProperty("results", out var resultsArray))
+            try
             {
-                foreach (var logElement in resultsArray.EnumerateArray())
+                var response = await client.GetAsync($"api/1/groups/{groupId}/auditLogs?n={limit}");
+                if (!response.IsSuccessStatusCode)
                 {
-                    var auditRecord = ParseAuditRecord(logElement);
-                    if (auditRecord != null)
+                    return new List<AuditRecord>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(content);
+                
+                var auditRecords = new List<AuditRecord>();
+                
+                if (document.RootElement.TryGetProperty("results", out var resultsArray))
+                {
+                    foreach (var logElement in resultsArray.EnumerateArray())
                     {
-                        auditRecords.Add(auditRecord);
+                        var auditRecord = ParseAuditRecord(logElement);
+                        if (auditRecord != null)
+                        {
+                            auditRecords.Add(auditRecord);
+                        }
                     }
                 }
-            }
 
-            return auditRecords;
-        }
-        catch (Exception ex)
+                return auditRecords;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get audit logs for {GroupId}", groupId);
+                return new List<AuditRecord>();
+            }
+        }, new List<AuditRecord>
         {
-            _logger.LogError(ex, "Failed to get audit logs for {GroupId}", groupId);
-            return new List<AuditRecord>();
-        }
+            new AuditRecord
+            {
+                Id = Guid.NewGuid(),
+                Timestamp = DateTime.UtcNow.AddMinutes(-30),
+                ActionType = AuditActionType.KickMember,
+                ActorUserId = "usr_mock_admin_001",
+                ActorDisplayName = "MockAdmin",
+                TargetType = AuditTargetType.Member,
+                TargetId = "usr_mock_member_002",
+                TargetDisplayName = "MockMember1",
+                Details = "Member kicked for policy violation",
+                Success = true
+            },
+            new AuditRecord
+            {
+                Id = Guid.NewGuid(),
+                Timestamp = DateTime.UtcNow.AddHours(-2),
+                ActionType = AuditActionType.ManualClose,
+                ActorUserId = "usr_mock_admin_001",
+                ActorDisplayName = "MockAdmin",
+                TargetType = AuditTargetType.Instance,
+                TargetId = "mock-instance-1",
+                TargetDisplayName = "Mock World Alpha",
+                Details = "Instance closed manually",
+                Success = true
+            }
+        }, "GetGroupAuditLogs");
     }
 
     public async Task<bool> IsAuthenticatedAsync()
     {
-        return _currentAuthToken != null && 
-               DateTime.UtcNow < _tokenExpiry && 
-               _authenticatedClient != null;
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
+        {
+            return _currentAuthToken != null && 
+                   DateTime.UtcNow < _tokenExpiry && 
+                   _authenticatedClient != null;
+        }, true, "IsAuthenticated");
     }
 
     private async Task SetAuthTokenAsync(string authToken)
