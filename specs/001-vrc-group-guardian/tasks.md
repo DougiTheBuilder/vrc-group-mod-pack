@@ -109,7 +109,7 @@
 
 ## Phase 3.9: Final Testing & Release (Epic G continued)
 - [x] T063 [P] Unit tests for policy logic in tests/unit/PolicyEngineTests.cs
-- [x] T064 [P] Unit tests for rate limiting in tests/unit/RateLimitTests.cs  
+- [x] T064 [P] Unit tests for rate limiting in tests/unit/RateLimitTests.cs
 - [x] T065 [P] Unit tests for timer management in tests/unit/TimerTests.cs
 - [x] T066 End-to-end manual testing per quickstart.md scenarios
 - [x] T067 Performance testing (startup time, memory usage, API efficiency)
@@ -117,15 +117,28 @@
 - [x] T069 Build pipeline and signed executable generation
 - [x] T070 Release documentation and deployment guide
 
+## Phase 4.1: Additional Tests (Outstanding Features)
+- [ ] T071 [P] Instance export & copy-link tests in tests/integration/InstanceExportTests.cs
+- [ ] T072 [P] Settings maintenance action tests in tests/unit/SettingsViewModelTests.cs
+- [ ] T073 [P] Member detail & pagination tests in tests/integration/MemberDetailsTests.cs
+- [ ] T074 [P] Audit record detail view tests in tests/unit/AuditViewModelTests.cs
+
+## Phase 4.2: Feature Completion & UI Polish
+- [ ] T075 [P] Instance export, copy join link, and closure confirmation in src/VrcGroupGuardian/ViewModels/InstancesViewModel.cs and src/VrcGroupGuardian/Views/InstancesView.xaml
+- [ ] T076 [P] Password box binding, cache clearing, update checking, and license display in src/VrcGroupGuardian/ViewModels/SettingsViewModel.cs
+- [ ] T077 [P] Member detail dialog, pagination, and kick/ban confirmations in src/VrcGroupGuardian/ViewModels/MembersViewModel.cs and src/VrcGroupGuardian/Views/MembersView.xaml
+- [ ] T078 [P] Detailed audit record dialog in src/VrcGroupGuardian/ViewModels/AuditViewModel.cs and src/VrcGroupGuardian/Views/AuditView.xaml
+
 ## Dependencies
 - Setup (T001-T005) before all other phases
 - Tests (T006-T022) before implementation (T023-T062)
 - Models (T023-T028) before services (T033-T039)
 - Infrastructure (T029-T032) before services
-- Services before CLI interfaces (T040-T044) 
+- Services before CLI interfaces (T040-T044)
 - Services before UI ViewModels (T046-T054)
 - Core UI before integration (T055-T062)
 - Implementation before final testing (T063-T070)
+- Additional tests (T071-T074) before feature completion (T075-T078)
 
 ## Parallel Execution Examples
 
