@@ -4,10 +4,12 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using CommunityToolkit.Mvvm.Input;
 using VrcGroupGuardian.Models;
 using VrcGroupGuardian.Services.Auth;
 using VrcGroupGuardian.Services.Enforcement;
 using VrcGroupGuardian.Services.Groups;
+using VrcGroupGuardian.Services.VrcApi;
 using VrcGroupGuardian.Infrastructure;
 
 namespace VrcGroupGuardian.ViewModels;
@@ -25,6 +27,7 @@ public class SetupWizardViewModel : INotifyPropertyChanged
     private string _twoFactorCode = "";
     private string _authenticationStatus = "";
     private bool _isAuthenticated;
+    private bool _requiresTwoFactor;
     private GroupInfo? _selectedGroup;
     private string _statusMessage = "Ready to begin setup";
     
@@ -109,7 +112,13 @@ public class SetupWizardViewModel : INotifyPropertyChanged
     public string AuthenticationStatus
     {
         get => _authenticationStatus;
-        set => SetProperty(ref _authenticationStatus, value);
+        set
+        {
+            if (SetProperty(ref _authenticationStatus, value))
+            {
+                OnPropertyChanged(nameof(HasError));
+            }
+        }
     }
 
     public Brush AuthenticationStatusColor => _isAuthenticated ? Brushes.Green : Brushes.Red;
@@ -196,6 +205,9 @@ public class SetupWizardViewModel : INotifyPropertyChanged
         set => SetProperty(ref _statusMessage, value);
     }
 
+    public bool HasError => !string.IsNullOrEmpty(AuthenticationStatus) && 
+                           (AuthenticationStatus.Contains("❌") || AuthenticationStatus.Contains("failed") || AuthenticationStatus.Contains("error"));
+
     // Commands
     public ICommand TestConnectionCommand { get; private set; } = null!;
     public ICommand RefreshGroupsCommand { get; private set; } = null!;
@@ -203,6 +215,7 @@ public class SetupWizardViewModel : INotifyPropertyChanged
     public ICommand PreviousStepCommand { get; private set; } = null!;
     public ICommand NextStepCommand { get; private set; } = null!;
     public ICommand CancelCommand { get; private set; } = null!;
+    public ICommand CopyErrorCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -212,6 +225,7 @@ public class SetupWizardViewModel : INotifyPropertyChanged
         PreviousStepCommand = new RelayCommand(PreviousStep, () => CanGoBack);
         NextStepCommand = new AsyncRelayCommand(NextStep, () => CanGoNext);
         CancelCommand = new RelayCommand(Cancel);
+        CopyErrorCommand = new RelayCommand(CopyErrorToClipboard);
     }
 
     public async Task InitializeAsync()
@@ -245,11 +259,29 @@ public class SetupWizardViewModel : INotifyPropertyChanged
             StatusMessage = "Testing VRChat connection...";
             AuthenticationStatus = "Authenticating...";
             
-            var result = await _authService.LoginAsync(Username, Password, TwoFactorCode);
+            AuthResult result;
+            
+            if (_requiresTwoFactor && !string.IsNullOrWhiteSpace(TwoFactorCode))
+            {
+                // User has entered 2FA code, verify it
+                StatusMessage = "Verifying 2FA code...";
+                result = await _authService.VerifyTwoFactorAsync(TwoFactorCode);
+            }
+            else if (!string.IsNullOrWhiteSpace(TwoFactorCode))
+            {
+                // User entered 2FA code along with credentials
+                result = await _authService.LoginAsync(Username, Password, TwoFactorCode);
+            }
+            else
+            {
+                // Initial login attempt
+                result = await _authService.LoginAsync(Username, Password);
+            }
             
             if (result.Success)
             {
                 IsAuthenticated = true;
+                _requiresTwoFactor = false;
                 AuthenticationStatus = "✅ Authentication successful!";
                 StatusMessage = "Connected to VRChat successfully";
                 
@@ -257,16 +289,29 @@ public class SetupWizardViewModel : INotifyPropertyChanged
                 Password = "";
                 TwoFactorCode = "";
             }
+            else if (result.RequiresTwoFactor)
+            {
+                _requiresTwoFactor = true;
+                IsAuthenticated = false;
+                AuthenticationStatus = "Two-factor authentication required";
+                StatusMessage = "Please enter your 2FA code and click Test Connection again";
+            }
             else
             {
                 IsAuthenticated = false;
-                AuthenticationStatus = $"❌ Authentication failed: {result.Message}";
+                _requiresTwoFactor = false;
+                var errorMessage = !string.IsNullOrEmpty(result.ErrorMessage) ? result.ErrorMessage : "Unknown error";
+                AuthenticationStatus = $"❌ Authentication failed: {errorMessage}";
                 StatusMessage = "Authentication failed - please check your credentials";
+                
+                // Log additional debug info
+                System.Diagnostics.Debug.WriteLine($"Auth failed - Success: {result.Success}, Error: {result.ErrorMessage}, Requires2FA: {result.RequiresTwoFactor}");
             }
         }
         catch (Exception ex)
         {
             IsAuthenticated = false;
+            _requiresTwoFactor = false;
             AuthenticationStatus = $"❌ Connection error: {ex.Message}";
             StatusMessage = "Connection test failed";
         }
@@ -408,6 +453,15 @@ public class SetupWizardViewModel : INotifyPropertyChanged
         if (Application.Current.MainWindow is Window setupWindow)
         {
             setupWindow.DialogResult = false;
+        }
+    }
+
+    private void CopyErrorToClipboard()
+    {
+        if (!string.IsNullOrEmpty(AuthenticationStatus))
+        {
+            System.Windows.Clipboard.SetText(AuthenticationStatus);
+            StatusMessage = "Error message copied to clipboard";
         }
     }
 

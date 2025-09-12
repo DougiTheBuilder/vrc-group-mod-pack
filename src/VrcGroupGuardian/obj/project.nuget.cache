@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "6j16SaXdVxo=",
+  "dgSpecHash": "egSV3AuAYys=",
   "success": true,
   "projectFilePath": "C:\\Projects\\vrc-group-mod-pack\\vrc-group-mod-pack\\src\\VrcGroupGuardian\\VrcGroupGuardian.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\dougl\\.nuget\\packages\\communitytoolkit.mvvm\\8.2.2\\communitytoolkit.mvvm.8.2.2.nupkg.sha512",
     "C:\\Users\\dougl\\.nuget\\packages\\microsoft.extensions.caching.abstractions\\8.0.0\\microsoft.extensions.caching.abstractions.8.0.0.nupkg.sha512",
     "C:\\Users\\dougl\\.nuget\\packages\\microsoft.extensions.caching.memory\\8.0.1\\microsoft.extensions.caching.memory.8.0.1.nupkg.sha512",
     "C:\\Users\\dougl\\.nuget\\packages\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",

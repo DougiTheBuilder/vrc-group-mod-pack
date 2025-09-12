@@ -15,7 +15,7 @@ public interface IDryRunMode
 public class DryRunMode : IDryRunMode
 {
     private readonly ILogger _logger = Log.ForContext<DryRunMode>();
-    private bool _isEnabled = false;
+    private bool _isEnabled = false; // Changed to false for production use
 
     public bool IsEnabled => _isEnabled;
 

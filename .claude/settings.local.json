@@ -12,7 +12,9 @@
       "Bash(find:*)",
       "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" restore)",
       "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --configuration Release)",
-      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --configuration Release --no-restore)"
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --configuration Release --no-restore)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build src/VrcGroupGuardian/VrcGroupGuardian.csproj --configuration Debug)",
+      "Bash(src/VrcGroupGuardian/bin/Debug/net8.0-windows/win-x64/VrcGroupGuardian.exe)"
     ],
     "deny": [],
     "ask": []

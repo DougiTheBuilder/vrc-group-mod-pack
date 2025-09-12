@@ -59,7 +59,8 @@ public class VrchatHttpClientFactory : IVrchatHttpClientFactory
             client.DefaultRequestHeaders.Add("Cookie", $"auth={authToken}");
         }
 
-        client.Timeout = TimeSpan.FromSeconds(30);
+        // Increase timeout for VRChat API calls, especially 2FA which can be slow
+        client.Timeout = TimeSpan.FromSeconds(90);
     }
 
     private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()

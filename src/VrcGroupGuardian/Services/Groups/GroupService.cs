@@ -52,24 +52,38 @@ public class GroupService : IGroupService
 
         try
         {
-            // Note: VRChat doesn't have a direct "get my groups" endpoint
-            // This would typically require getting user profile and extracting group memberships
-            // For now, return placeholder implementation
-            _logger.LogWarning("GetAvailableGroupsAsync not fully implemented - VRChat API limitation");
+            // Get user's groups from VRChat API
+            var vrcGroups = await _vrcApiService.GetUserGroupsAsync();
             
-            return new List<GroupInfo>
+            var groupInfos = new List<GroupInfo>();
+            foreach (var vrcGroup in vrcGroups)
             {
-                new GroupInfo
+                _logger.LogDebug("Group: {GroupName} ({GroupId}) - User Role: '{UserRole}', IsManagement: {IsManagement}", 
+                    vrcGroup.Name, vrcGroup.Id, vrcGroup.UserRole, IsManagementRole(vrcGroup.UserRole));
+                
+                // Only include groups where user has management permissions
+                if (IsManagementRole(vrcGroup.UserRole))
                 {
-                    GroupId = "grp_example-group-id",
-                    GroupName = "Example Group",
-                    Description = "This is an example group for testing",
-                    MemberCount = 100,
-                    OwnerDisplayName = "Group Owner",
-                    IsPrivate = false,
-                    UserRole = "Member"
+                    groupInfos.Add(new GroupInfo
+                    {
+                        GroupId = vrcGroup.Id,
+                        GroupName = vrcGroup.Name,
+                        Description = vrcGroup.Description,
+                        MemberCount = vrcGroup.MemberCount,
+                        OwnerDisplayName = vrcGroup.OwnerDisplayName,
+                        IsPrivate = vrcGroup.IsPrivate,
+                        UserRole = vrcGroup.UserRole
+                    });
                 }
-            };
+                else
+                {
+                    _logger.LogDebug("Filtering out group {GroupName} - role '{UserRole}' is not a management role", 
+                        vrcGroup.Name, vrcGroup.UserRole);
+                }
+            }
+
+            _logger.LogInformation("Retrieved {GroupCount} manageable groups for user", groupInfos.Count);
+            return groupInfos;
         }
         catch (Exception ex)
         {
@@ -317,6 +331,14 @@ public class GroupService : IGroupService
         }
 
         return hasMemberPermission;
+    }
+
+    private static bool IsManagementRole(string userRole)
+    {
+        // Only show groups where user has management capabilities
+        return userRole.Equals("Owner", StringComparison.OrdinalIgnoreCase) ||
+               userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) ||
+               userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase);
     }
 }
 

@@ -1045,3 +1045,7 @@ C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\bin\Debug
 C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\VrcGroup.7499D261.Up2Date
 C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\VrcGroupGuardian.genruntimeconfig.cache
 C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\ref\VrcGroupGuardian.dll
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\bin\Debug\net8.0-windows\win-x64\CommunityToolkit.Mvvm.dll
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\GeneratedInternalTypeHelper.g.cs
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\VrcGroupGuardian_MarkupCompile.lref
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\App.baml

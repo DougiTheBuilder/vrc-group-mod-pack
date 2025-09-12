@@ -5,12 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="VRC Group Guardian - First Run Setup" 
-        Height="600" 
-        Width="800"
-        MinHeight="500"
-        MinWidth="700"
+        Height="650" 
+        Width="950"
+        MinHeight="550"
+        MinWidth="800"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize">
+        ResizeMode="CanResize">
     
     <Window.Resources>
         <Style x:Key="WizardHeaderStyle" TargetType="TextBlock">
@@ -147,12 +147,13 @@
                         <Label Content="Password:" Style="{StaticResource InputLabelStyle}"/>
                         <PasswordBox x:Name="PasswordBox" Style="{StaticResource InputPasswordBoxStyle}"/>
                         
-                        <Label Content="2FA Code (if enabled):" Style="{StaticResource InputLabelStyle}"/>
+                        <Label Content="2FA Code (6 digits from your authenticator app):" Style="{StaticResource InputLabelStyle}"/>
                         <TextBox Text="{Binding TwoFactorCode, UpdateSourceTrigger=PropertyChanged}" 
                                  Style="{StaticResource InputTextBoxStyle}"
                                  MaxLength="6"
-                                 Width="100"
-                                 HorizontalAlignment="Left"/>
+                                 Width="120"
+                                 HorizontalAlignment="Left"
+                                 ToolTip="Enter the 6-digit code from your Google Authenticator, Authy, or other 2FA app"/>
                     </StackPanel>
                     
                     <StackPanel Grid.Column="2">
@@ -179,7 +180,21 @@
                         <TextBlock Text="{Binding AuthenticationStatus}" 
                                  Margin="0,10,0,0"
                                  Foreground="{Binding AuthenticationStatusColor}"
-                                 FontWeight="SemiBold"/>
+                                 FontWeight="SemiBold"
+                                 TextWrapping="Wrap"
+                                 MaxWidth="600"/>
+                        
+                        <Button Content="📋 Copy Error" 
+                                Command="{Binding CopyErrorCommand}"
+                                Margin="0,5,0,0"
+                                Padding="5,2"
+                                Background="#F5F5F5"
+                                BorderBrush="#CCC"
+                                BorderThickness="1"
+                                FontSize="11"
+                                HorizontalAlignment="Left"
+                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}"
+                                ToolTip="Copy the error message to clipboard"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -360,7 +375,8 @@
                 <TextBlock Grid.Column="0" 
                            Text="{Binding StatusMessage}" 
                            VerticalAlignment="Center"
-                           Foreground="#666"/>
+                           Foreground="#666"
+                           TextWrapping="Wrap"/>
                 
                 <Button Grid.Column="1" 
                         Content="Previous" 

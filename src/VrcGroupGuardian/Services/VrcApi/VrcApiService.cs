@@ -21,6 +21,7 @@ public interface IVrcApiService
     Task<List<string>> GetGroupPermissionsAsync(string groupId);
     Task<List<AuditRecord>> GetGroupAuditLogsAsync(string groupId, int limit = 100);
     Task<bool> IsAuthenticatedAsync();
+    Task<List<VrcGroup>> GetUserGroupsAsync();
 }
 
 public class VrcApiService : IVrcApiService, IDisposable
@@ -34,6 +35,7 @@ public class VrcApiService : IVrcApiService, IDisposable
     private HttpClient? _authenticatedClient;
     private string? _currentAuthToken;
     private DateTime _tokenExpiry = DateTime.MinValue;
+    private string? _pendingAuthToken; // Store intermediate auth state for 2FA
 
     public VrcApiService(IVrchatHttpClientFactory httpClientFactory, ICacheService cacheService, IDryRunMode dryRunMode, ILogger<VrcApiService> logger)
     {
@@ -45,6 +47,7 @@ public class VrcApiService : IVrcApiService, IDisposable
 
     public async Task<AuthResult> LoginAsync(string username, string password)
     {
+        _logger.LogDebug("LoginAsync called - DryRun mode enabled: {DryRunEnabled}", _dryRunMode.IsEnabled);
         return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
         {
             await _authLock.WaitAsync();
@@ -52,20 +55,41 @@ public class VrcApiService : IVrcApiService, IDisposable
             {
                 using var client = _httpClientFactory.CreateClient();
                 
-                var loginData = new { username, password };
-            var response = await client.PostAsJsonAsync("api/1/auth/user", loginData);
+                // VRChat API uses Basic Authentication with GET to /auth/user
+                var credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{username}:{password}"));
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+                
+                var response = await client.GetAsync("api/1/auth/user");
             
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning("Login failed with status {StatusCode}: {Error}", response.StatusCode, error);
                 
+                string userFriendlyError;
+                switch (response.StatusCode)
+                {
+                    case System.Net.HttpStatusCode.Unauthorized:
+                        userFriendlyError = "Invalid username or password";
+                        break;
+                    case System.Net.HttpStatusCode.Forbidden:
+                        userFriendlyError = "Account may be banned or suspended";
+                        break;
+                    case System.Net.HttpStatusCode.TooManyRequests:
+                        userFriendlyError = "Too many login attempts - please wait and try again";
+                        break;
+                    case System.Net.HttpStatusCode.ServiceUnavailable:
+                        userFriendlyError = "VRChat servers are temporarily unavailable";
+                        break;
+                    default:
+                        userFriendlyError = $"Login request failed (HTTP {(int)response.StatusCode})";
+                        break;
+                }
+                
                 return new AuthResult 
                 { 
                     Success = false, 
-                    ErrorMessage = response.StatusCode == System.Net.HttpStatusCode.Unauthorized 
-                        ? "Invalid username or password" 
-                        : "Login request failed",
+                    ErrorMessage = userFriendlyError,
                     RequiresTwoFactor = false
                 };
             }
@@ -73,29 +97,61 @@ public class VrcApiService : IVrcApiService, IDisposable
             var responseContent = await response.Content.ReadAsStringAsync();
             using var document = JsonDocument.Parse(responseContent);
             
-            // Check if 2FA is required
-            if (document.RootElement.TryGetProperty("requiresTwoFactorAuth", out var requires2FA) && 
-                requires2FA.GetBoolean())
+            // Check if 2FA is required - VRChat API can return different types
+            if (document.RootElement.TryGetProperty("requiresTwoFactorAuth", out var requires2FA))
             {
-                return new AuthResult 
-                { 
-                    Success = false, 
-                    RequiresTwoFactor = true,
-                    ErrorMessage = "Two-factor authentication required"
-                };
+                bool requires2FABool = false;
+                
+                try
+                {
+                    // Try different possible types
+                    if (requires2FA.ValueKind == JsonValueKind.True)
+                    {
+                        requires2FABool = true;
+                    }
+                    else if (requires2FA.ValueKind == JsonValueKind.Array && requires2FA.GetArrayLength() > 0)
+                    {
+                        // VRChat might return an array of 2FA types required
+                        requires2FABool = true;
+                    }
+                    else if (requires2FA.ValueKind == JsonValueKind.String)
+                    {
+                        var str = requires2FA.GetString();
+                        requires2FABool = !string.IsNullOrEmpty(str) && str.ToLower() != "false";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse requiresTwoFactorAuth field from VRChat API response");
+                }
+                
+                if (requires2FABool)
+                {
+                    // Store the intermediate auth token for 2FA verification
+                    var intermediateToken = ExtractAuthTokenFromResponse(response);
+                    if (!string.IsNullOrEmpty(intermediateToken))
+                    {
+                        _pendingAuthToken = intermediateToken;
+                    }
+                    
+                    return new AuthResult 
+                    { 
+                        Success = false, 
+                        RequiresTwoFactor = true,
+                        ErrorMessage = "Two-factor authentication required"
+                    };
+                }
             }
 
             // Extract auth token from cookies
-            var authCookie = response.Headers.GetValues("Set-Cookie")
-                .FirstOrDefault(c => c.StartsWith("auth="));
+            var authToken = ExtractAuthTokenFromResponse(response);
             
-            if (authCookie == null)
+            if (string.IsNullOrEmpty(authToken))
             {
                 _logger.LogError("No auth cookie received after successful login");
                 return new AuthResult { Success = false, ErrorMessage = "Authentication token not received" };
             }
 
-            var authToken = authCookie.Split('=')[1].Split(';')[0];
             await SetAuthTokenAsync(authToken);
 
             _logger.LogInformation("Login successful for user");
@@ -106,11 +162,21 @@ public class VrcApiService : IVrcApiService, IDisposable
                 RequiresTwoFactor = false
             };
         }
+        catch (HttpRequestException httpEx)
+        {
+            _logger.LogError(httpEx, "HTTP request failed during login");
+            return new AuthResult { Success = false, ErrorMessage = $"Connection error: {httpEx.Message}" };
+        }
+        catch (TaskCanceledException tcEx)
+        {
+            _logger.LogError(tcEx, "Login request timed out");
+            return new AuthResult { Success = false, ErrorMessage = "Request timed out - please try again" };
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Login request failed with exception");
-            return new AuthResult { Success = false, ErrorMessage = "Network error during login" };
-            }
+            _logger.LogError(ex, "Login request failed with unexpected exception");
+            return new AuthResult { Success = false, ErrorMessage = $"Network error: {ex.Message}" };
+        }
             finally
             {
                 _authLock.Release();
@@ -125,7 +191,19 @@ public class VrcApiService : IVrcApiService, IDisposable
             await _authLock.WaitAsync();
             try
             {
-                using var client = _httpClientFactory.CreateClient();
+                if (string.IsNullOrEmpty(_pendingAuthToken))
+                {
+                    _logger.LogWarning("No pending auth token found for 2FA verification");
+                    return new AuthResult 
+                    { 
+                        Success = false, 
+                        ErrorMessage = "Authentication state lost - please login again",
+                        RequiresTwoFactor = false
+                    };
+                }
+
+                // Create client with the pending auth token
+                using var client = _httpClientFactory.CreateRateLimitedClient(_pendingAuthToken);
                 
                 var twoFactorData = new { code };
                 var response = await client.PostAsJsonAsync("api/1/auth/twofactorauth/totp/verify", twoFactorData);
@@ -143,15 +221,16 @@ public class VrcApiService : IVrcApiService, IDisposable
                 };
             }
 
-            // Extract updated auth token
-            var authCookie = response.Headers.GetValues("Set-Cookie")
-                .FirstOrDefault(c => c.StartsWith("auth="));
+            // Extract updated auth token from response or use pending token
+            var authToken = ExtractAuthTokenFromResponse(response) ?? _pendingAuthToken;
             
-            if (authCookie != null)
+            if (!string.IsNullOrEmpty(authToken))
             {
-                var authToken = authCookie.Split('=')[1].Split(';')[0];
                 await SetAuthTokenAsync(authToken);
             }
+
+            // Clear pending auth token after successful 2FA
+            _pendingAuthToken = null;
 
             _logger.LogInformation("Two-factor authentication successful");
             return new AuthResult 
@@ -565,6 +644,116 @@ public class VrcApiService : IVrcApiService, IDisposable
         }, true, "IsAuthenticated");
     }
 
+    public async Task<List<VrcGroup>> GetUserGroupsAsync()
+    {
+        return await _dryRunMode.ExecuteOrSimulateAsync(async () =>
+        {
+            var client = await GetAuthenticatedClientAsync();
+            if (client == null)
+            {
+                _logger.LogWarning("Not authenticated, cannot get user groups");
+                return new List<VrcGroup>();
+            }
+
+            try
+            {
+                // First get current user info which should contain group memberships
+                var userResponse = await client.GetAsync("api/1/auth/user");
+                if (!userResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get current user info: {StatusCode}", userResponse.StatusCode);
+                    return new List<VrcGroup>();
+                }
+
+                var userContent = await userResponse.Content.ReadAsStringAsync();
+                _logger.LogDebug("User API response: {Response}", userContent.Length > 500 ? userContent.Substring(0, 500) + "..." : userContent);
+                using var userDoc = JsonDocument.Parse(userContent);
+                
+                var groups = new List<VrcGroup>();
+
+                // Check if user data contains group information
+                if (userDoc.RootElement.TryGetProperty("groups", out var groupsArray))
+                {
+                    foreach (var groupElement in groupsArray.EnumerateArray())
+                    {
+                        var group = ParseVrcGroup(groupElement);
+                        if (group != null)
+                        {
+                            groups.Add(group);
+                        }
+                    }
+                    
+                    _logger.LogInformation("Retrieved {GroupCount} groups from user data", groups.Count);
+                    return groups;
+                }
+                
+                // If no groups in user data, try alternative endpoint
+                var response = await client.GetAsync("api/1/groups");
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get user groups: {StatusCode}", response.StatusCode);
+                    return new List<VrcGroup>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(content);
+                
+                if (document.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var groupElement in document.RootElement.EnumerateArray())
+                    {
+                        var group = ParseVrcGroup(groupElement);
+                        if (group != null)
+                        {
+                            groups.Add(group);
+                        }
+                    }
+                }
+                else if (document.RootElement.TryGetProperty("groups", out var altGroupsArray))
+                {
+                    foreach (var groupElement in altGroupsArray.EnumerateArray())
+                    {
+                        var group = ParseVrcGroup(groupElement);
+                        if (group != null)
+                        {
+                            groups.Add(group);
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Retrieved {GroupCount} groups from groups endpoint", groups.Count);
+                return groups;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get user groups");
+                return new List<VrcGroup>();
+            }
+        }, new List<VrcGroup>
+        {
+            new VrcGroup
+            {
+                Id = "grp_mock_group_001",
+                Name = "Mock Moderation Group",
+                Description = "A mock group for testing VRC Group Guardian",
+                MemberCount = 25,
+                OwnerDisplayName = "MockOwner",
+                IsPrivate = false,
+                UserRole = "Owner"
+            },
+            new VrcGroup
+            {
+                Id = "grp_mock_group_002", 
+                Name = "Another Test Group",
+                Description = "Secondary test group",
+                MemberCount = 12,
+                OwnerDisplayName = "AnotherOwner",
+                IsPrivate = true,
+                UserRole = "Admin"
+            }
+        }, "GetUserGroups");
+    }
+
     private async Task SetAuthTokenAsync(string authToken)
     {
         _currentAuthToken = authToken;
@@ -574,9 +763,36 @@ public class VrcApiService : IVrcApiService, IDisposable
         _authenticatedClient = _httpClientFactory.CreateRateLimitedClient(authToken);
     }
 
+    private string? ExtractAuthTokenFromResponse(HttpResponseMessage response)
+    {
+        try
+        {
+            // Try to get auth cookie from Set-Cookie headers
+            if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
+            {
+                var authCookie = cookies.FirstOrDefault(c => c.StartsWith("auth="));
+                if (authCookie != null)
+                {
+                    var authToken = authCookie.Split('=')[1].Split(';')[0];
+                    _logger.LogDebug("Extracted auth token from cookie");
+                    return authToken;
+                }
+            }
+            
+            _logger.LogWarning("No auth cookie found in response");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to extract auth token from response");
+            return null;
+        }
+    }
+
     private async Task ClearAuthAsync()
     {
         _currentAuthToken = null;
+        _pendingAuthToken = null;
         _tokenExpiry = DateTime.MinValue;
         
         _authenticatedClient?.Dispose();
@@ -720,6 +936,56 @@ public class VrcApiService : IVrcApiService, IDisposable
         };
     }
 
+    private VrcGroup? ParseVrcGroup(JsonElement element)
+    {
+        try
+        {
+            var id = element.GetProperty("id").GetString() ?? "";
+            var name = element.GetProperty("name").GetString() ?? "";
+            
+            // Extract user role with detailed logging
+            var userRole = "";
+            if (element.TryGetProperty("myMember", out var member))
+            {
+                if (member.TryGetProperty("roleDisplayName", out var role))
+                {
+                    userRole = role.GetString() ?? "";
+                    _logger.LogDebug("Group {GroupName} myMember.roleDisplayName: '{UserRole}'", name, userRole);
+                }
+                else
+                {
+                    _logger.LogDebug("Group {GroupName} myMember exists but no roleDisplayName", name);
+                    // Try alternative role fields
+                    if (member.TryGetProperty("role", out var altRole))
+                    {
+                        userRole = altRole.GetString() ?? "";
+                        _logger.LogDebug("Group {GroupName} using myMember.role: '{UserRole}'", name, userRole);
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogDebug("Group {GroupName} has no myMember property", name);
+            }
+
+            return new VrcGroup
+            {
+                Id = id,
+                Name = name,
+                Description = element.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "",
+                MemberCount = element.TryGetProperty("memberCount", out var count) ? count.GetInt32() : 0,
+                OwnerDisplayName = element.TryGetProperty("ownerId", out var owner) ? owner.GetString() ?? "" : "",
+                IsPrivate = element.TryGetProperty("privacy", out var privacy) ? privacy.GetString() != "public" : true,
+                UserRole = userRole
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse VrcGroup from JSON element");
+            return null;
+        }
+    }
+
     private static AuditActionType ParseAuditActionType(string? eventType)
     {
         return eventType?.ToLower() switch
@@ -746,4 +1012,15 @@ public class AuthResult
     public string? Message { get; set; }
     public string? AuthToken { get; set; }
     public bool RequiresTwoFactor { get; set; }
+}
+
+public class VrcGroup
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int MemberCount { get; set; }
+    public string OwnerDisplayName { get; set; } = string.Empty;
+    public bool IsPrivate { get; set; }
+    public string UserRole { get; set; } = string.Empty;
 }

@@ -1,13 +1,169 @@
 <Window x:Class="VrcGroupGuardian.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="VRC Group Guardian" Height="600" Width="900"
-        WindowStartupLocation="CenterScreen">
+        Title="VRC Group Guardian" Height="700" Width="1100"
+        WindowStartupLocation="CenterScreen" MinWidth="800" MinHeight="600">
+    
+    <Window.Resources>
+        <Style x:Key="TabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#666"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E3F2FD"/>
+                    <Setter Property="Foreground" Value="#2196F3"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <Style x:Key="ActiveTabButtonStyle" TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </Window.Resources>
+    
     <Grid>
-        <TextBlock Text="VRC Group Guardian" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   FontSize="24" 
-                   FontWeight="Bold"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#1976D2" Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+                    <TextBlock Text="VRC Group Guardian" 
+                               Foreground="White" 
+                               FontSize="20" 
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding StatusText, FallbackValue='Managing your VRChat groups'}" 
+                               Foreground="#BBDEFB" 
+                               FontSize="12"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0" VerticalAlignment="Center">
+                    <Ellipse Width="12" Height="12" Fill="{Binding StatusColor, FallbackValue=Gray}" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding ConnectionStatus, FallbackValue='Disconnected'}" 
+                               Foreground="White" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <Button Grid.Column="2" 
+                        Content="Settings" 
+                        Style="{StaticResource ActionButtonStyle}"
+                        Background="Transparent" 
+                        BorderBrush="White" 
+                        BorderThickness="1"
+                        Foreground="White"
+                        Command="{Binding ShowSettingsCommand}"/>
+            </Grid>
+        </Border>
+        
+        <!-- Navigation Tabs -->
+        <Border Grid.Row="1" Background="#F8F9FA" BorderBrush="#E9ECEF" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="20,0">
+                <Button Content="📊 Dashboard" Style="{StaticResource TabButtonStyle}" Command="{Binding ShowDashboardCommand}"/>
+                <Button Content="👥 Members" Style="{StaticResource TabButtonStyle}" Command="{Binding ShowMembersCommand}"/>
+                <Button Content="🌐 Instances" Style="{StaticResource TabButtonStyle}" Command="{Binding ShowInstancesCommand}"/>
+                <Button Content="📝 Audit Log" Style="{StaticResource TabButtonStyle}" Command="{Binding ShowAuditCommand}"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Content Area -->
+        <Border Grid.Row="2" Background="White" Padding="20">
+            <Grid>
+                <!-- Dashboard Content (Default) -->
+                <StackPanel x:Name="DashboardPanel" Visibility="{Binding DashboardVisibility, FallbackValue=Visible}">
+                    <TextBlock Text="🎯 Quick Actions" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+                    
+                    <UniformGrid Columns="2" Margin="0,0,0,30">
+                        <Border Style="{StaticResource SettingsGroupStyle}" Margin="0,0,10,0">
+                            <StackPanel>
+                                <TextBlock Text="🔐 Authentication" Style="{StaticResource SectionHeaderStyle}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Ellipse Width="12" Height="12" Fill="{Binding AuthStatusColor, FallbackValue=Gray}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding AuthStatus, FallbackValue='Not logged in'}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Button Content="Login to VRChat" 
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding LoginCommand}"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <Border Style="{StaticResource SettingsGroupStyle}" Margin="10,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="👥 Group Management" Style="{StaticResource SectionHeaderStyle}"/>
+                                <TextBlock Text="{Binding SelectedGroupName, FallbackValue='No group selected'}" Margin="0,0,0,10"/>
+                                <Button Content="Select Group" 
+                                        Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding SelectGroupCommand}"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                    
+                    <TextBlock Text="📈 System Status" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+                    
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Monitoring Status" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10" Fill="{Binding MonitoringStatusColor, FallbackValue=Gray}" Margin="0,0,5,0"/>
+                                    <TextBlock Text="{Binding MonitoringStatus, FallbackValue='Stopped'}" FontSize="12"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Active Members" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding ActiveMemberCount, FallbackValue='0'}" FontSize="14" Foreground="#2196F3"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Instances Monitored" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBlock Text="{Binding MonitoredInstanceCount, FallbackValue='0'}" FontSize="14" Foreground="#2196F3"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+                
+                <!-- Content for other views will be loaded dynamically -->
+                <ContentPresenter x:Name="ContentArea" Content="{Binding CurrentViewContent}" 
+                                  Visibility="{Binding ContentVisibility, FallbackValue=Collapsed}"/>
+            </Grid>
+        </Border>
+        
+        <!-- Status Bar -->
+        <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#E9ECEF" BorderThickness="0,1,0,0" Padding="20,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage, FallbackValue='Ready'}" 
+                           FontSize="12" Foreground="#666" VerticalAlignment="Center"/>
+                
+                <TextBlock Grid.Column="1" Text="{Binding LastUpdateTime, FallbackValue=''}" 
+                           FontSize="12" Foreground="#666" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
