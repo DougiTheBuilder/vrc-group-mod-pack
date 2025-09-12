@@ -56,6 +56,14 @@
             <Setter Property="BorderBrush" Value="#CCC"/>
             <Setter Property="Margin" Value="0,0,0,15"/>
         </Style>
+        
+        <Style x:Key="InputPasswordBoxStyle" TargetType="PasswordBox">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCC"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -114,6 +122,7 @@
         
         <!-- Content Area -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="40,30">
+            <StackPanel>
             
             <!-- Step 1: Authentication -->
             <StackPanel x:Name="Step1Panel" Visibility="{Binding Step1Visibility}">
@@ -136,7 +145,7 @@
                                  Style="{StaticResource InputTextBoxStyle}"/>
                         
                         <Label Content="Password:" Style="{StaticResource InputLabelStyle}"/>
-                        <PasswordBox x:Name="PasswordBox" Style="{StaticResource InputTextBoxStyle}"/>
+                        <PasswordBox x:Name="PasswordBox" Style="{StaticResource InputPasswordBoxStyle}"/>
                         
                         <Label Content="2FA Code (if enabled):" Style="{StaticResource InputLabelStyle}"/>
                         <TextBox Text="{Binding TwoFactorCode, UpdateSourceTrigger=PropertyChanged}" 
@@ -335,6 +344,7 @@
                 </Grid>
             </StackPanel>
             
+            </StackPanel>
         </ScrollViewer>
         
         <!-- Navigation Buttons -->

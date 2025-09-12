@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.IO;
 using VrcGroupGuardian.Infrastructure;
 using VrcGroupGuardian.Models;
 using VrcGroupGuardian.Services.Instances;
@@ -13,6 +14,8 @@ public interface IEnforcementService
     Task<bool> IsEnforcementActiveAsync();
     Task<PolicyConfiguration> GetPolicyConfigurationAsync();
     Task<bool> UpdatePolicyConfigurationAsync(PolicyConfiguration config);
+    Task<ExportResult> ImportPolicyConfigurationAsync(string filePath);
+    Task<ExportResult> ExportPolicyConfigurationAsync(string filePath);
     Task<CancellationResult> CancelScheduledClosureAsync(string instanceId);
     Task<List<EnforcementStatus>> GetEnforcementStatusAsync();
     event EventHandler<InstanceFlaggedEventArgs>? InstanceFlagged;
@@ -473,6 +476,99 @@ public class EnforcementService : IEnforcementService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing auto-close for instance {InstanceId}", instanceId);
+        }
+    }
+
+    public async Task<ExportResult> ImportPolicyConfigurationAsync(string filePath)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                return new ExportResult
+                {
+                    Success = false,
+                    Message = "File not found or invalid path",
+                    FilePath = filePath
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(filePath);
+            var config = System.Text.Json.JsonSerializer.Deserialize<PolicyConfiguration>(json);
+            
+            if (config != null)
+            {
+                var success = await UpdatePolicyConfigurationAsync(config);
+                return new ExportResult
+                {
+                    Success = success,
+                    Message = success ? "Policy configuration imported successfully" : "Failed to save imported configuration",
+                    FilePath = filePath,
+                    RecordCount = 1,
+                    Format = "JSON"
+                };
+            }
+
+            return new ExportResult
+            {
+                Success = false,
+                Message = "Invalid configuration file format",
+                FilePath = filePath
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to import policy configuration from {FilePath}", filePath);
+            return new ExportResult
+            {
+                Success = false,
+                Message = $"Import failed: {ex.Message}",
+                FilePath = filePath
+            };
+        }
+    }
+
+    public async Task<ExportResult> ExportPolicyConfigurationAsync(string filePath)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(filePath))
+            {
+                return new ExportResult
+                {
+                    Success = false,
+                    Message = "Invalid file path"
+                };
+            }
+
+            var config = await GetPolicyConfigurationAsync();
+            var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+            
+            await File.WriteAllTextAsync(filePath, json);
+            
+            _logger.LogInformation("Exported policy configuration to {FilePath}", filePath);
+            
+            return new ExportResult
+            {
+                Success = true,
+                Message = "Policy configuration exported successfully",
+                FilePath = filePath,
+                RecordCount = 1,
+                Format = "JSON"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export policy configuration to {FilePath}", filePath);
+            return new ExportResult
+            {
+                Success = false,
+                Message = $"Export failed: {ex.Message}",
+                FilePath = filePath
+            };
         }
     }
 

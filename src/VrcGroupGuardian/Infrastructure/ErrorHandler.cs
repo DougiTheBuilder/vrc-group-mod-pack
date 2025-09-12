@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 using Serilog;
 
@@ -31,7 +33,7 @@ public class ErrorHandler : IErrorHandler
     {
         try
         {
-            Interlocked.Increment(ref _statistics.TotalErrors);
+            _statistics.IncrementTotalErrors();
             _logger.Error(exception, "Error in {Context}: {Message}", context.OperationName, exception.Message);
 
             // Check for specific exception handlers
@@ -134,17 +136,15 @@ public class ErrorHandler : IErrorHandler
 
     public ErrorStatistics GetErrorStatistics()
     {
-        return new ErrorStatistics
-        {
-            TotalErrors = _statistics.TotalErrors,
-            NetworkErrors = _statistics.NetworkErrors,
-            AuthenticationErrors = _statistics.AuthenticationErrors,
-            ValidationErrors = _statistics.ValidationErrors,
-            MemoryErrors = _statistics.MemoryErrors,
-            TimeoutErrors = _statistics.TimeoutErrors,
-            CriticalErrors = _statistics.CriticalErrors,
-            RecoveredErrors = _statistics.RecoveredErrors
-        };
+        return new ErrorStatistics(
+            _statistics.TotalErrors,
+            _statistics.NetworkErrors,
+            _statistics.AuthenticationErrors,
+            _statistics.ValidationErrors,
+            _statistics.MemoryErrors,
+            _statistics.TimeoutErrors,
+            _statistics.CriticalErrors,
+            _statistics.RecoveredErrors);
     }
 
     private void RegisterSpecificHandlers()
@@ -155,7 +155,7 @@ public class ErrorHandler : IErrorHandler
 
     private async Task<ErrorHandlingResult> HandleNetworkErrorAsync(HttpRequestException exception, ErrorContext context)
     {
-        Interlocked.Increment(ref _statistics.NetworkErrors);
+        _statistics.IncrementNetworkErrors();
         _logger.Warning(exception, "Network error in {Context}", context.OperationName);
 
         return new ErrorHandlingResult
@@ -172,7 +172,7 @@ public class ErrorHandler : IErrorHandler
 
     private async Task<ErrorHandlingResult> HandleTimeoutErrorAsync(TaskCanceledException exception, ErrorContext context)
     {
-        Interlocked.Increment(ref _statistics.TimeoutErrors);
+        _statistics.IncrementTimeoutErrors();
         _logger.Warning(exception, "Timeout error in {Context}", context.OperationName);
 
         return new ErrorHandlingResult
@@ -189,7 +189,7 @@ public class ErrorHandler : IErrorHandler
 
     private async Task<ErrorHandlingResult> HandleAuthenticationErrorAsync(UnauthorizedAccessException exception, ErrorContext context)
     {
-        Interlocked.Increment(ref _statistics.AuthenticationErrors);
+        _statistics.IncrementAuthenticationErrors();
         _logger.Warning(exception, "Authentication error in {Context}", context.OperationName);
 
         return new ErrorHandlingResult
@@ -205,7 +205,7 @@ public class ErrorHandler : IErrorHandler
 
     private async Task<ErrorHandlingResult> HandleValidationErrorAsync(ArgumentException exception, ErrorContext context)
     {
-        Interlocked.Increment(ref _statistics.ValidationErrors);
+        _statistics.IncrementValidationErrors();
         _logger.Warning(exception, "Validation error in {Context}", context.OperationName);
 
         return new ErrorHandlingResult
@@ -251,7 +251,7 @@ public class ErrorHandler : IErrorHandler
 
     private async Task<ErrorHandlingResult> HandleMemoryErrorAsync(OutOfMemoryException exception, ErrorContext context)
     {
-        Interlocked.Increment(ref _statistics.MemoryErrors);
+        _statistics.IncrementMemoryErrors();
         _logger.Error(exception, "Memory error in {Context}", context.OperationName);
 
         // Force garbage collection
@@ -288,7 +288,7 @@ public class ErrorHandler : IErrorHandler
     private async Task<ErrorHandlingResult> HandleWebExceptionAsync(Exception exception, ErrorContext context)
     {
         var webEx = (WebException)exception;
-        Interlocked.Increment(ref _statistics.NetworkErrors);
+        _statistics.IncrementNetworkErrors();
 
         var action = webEx.Status switch
         {
@@ -314,7 +314,7 @@ public class ErrorHandler : IErrorHandler
     private async Task<ErrorHandlingResult> HandleSocketExceptionAsync(Exception exception, ErrorContext context)
     {
         var socketEx = (System.Net.Sockets.SocketException)exception;
-        Interlocked.Increment(ref _statistics.NetworkErrors);
+        _statistics.IncrementNetworkErrors();
 
         return new ErrorHandlingResult
         {
@@ -345,7 +345,7 @@ public class ErrorHandler : IErrorHandler
                 
                 if (attempt > 1)
                 {
-                    Interlocked.Increment(ref _statistics.RecoveredErrors);
+                    _statistics.IncrementRecoveredErrors();
                     _logger.Information("Operation {Operation} succeeded on retry attempt {Attempt}", 
                         context.OperationName, attempt);
                 }
@@ -378,7 +378,7 @@ public class ErrorHandler : IErrorHandler
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         var exception = e.ExceptionObject as Exception;
-        Interlocked.Increment(ref _statistics.CriticalErrors);
+        _statistics.IncrementCriticalErrors();
         _logger.Fatal(exception, "Unhandled exception occurred. Terminating: {IsTerminating}", e.IsTerminating);
 
         if (e.IsTerminating)
@@ -400,7 +400,7 @@ public class ErrorHandler : IErrorHandler
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        Interlocked.Increment(ref _statistics.CriticalErrors);
+        _statistics.IncrementCriticalErrors();
         _logger.Error(e.Exception, "Unobserved task exception occurred");
         
         // Mark as observed to prevent application termination
@@ -409,7 +409,7 @@ public class ErrorHandler : IErrorHandler
 
     private void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
     {
-        Interlocked.Increment(ref _statistics.CriticalErrors);
+        _statistics.IncrementCriticalErrors();
         _logger.Error(e.Exception, "Unhandled dispatcher exception occurred");
 
         try
@@ -456,14 +456,47 @@ public class ErrorContext
 
 public class ErrorStatistics
 {
-    public long TotalErrors { get; set; }
-    public long NetworkErrors { get; set; }
-    public long AuthenticationErrors { get; set; }
-    public long ValidationErrors { get; set; }
-    public long MemoryErrors { get; set; }
-    public long TimeoutErrors { get; set; }
-    public long CriticalErrors { get; set; }
-    public long RecoveredErrors { get; set; }
+    private long _totalErrors;
+    private long _networkErrors;
+    private long _authenticationErrors;
+    private long _validationErrors;
+    private long _memoryErrors;
+    private long _timeoutErrors;
+    private long _criticalErrors;
+    private long _recoveredErrors;
+    
+    public long TotalErrors => _totalErrors;
+    public long NetworkErrors => _networkErrors;
+    public long AuthenticationErrors => _authenticationErrors;
+    public long ValidationErrors => _validationErrors;
+    public long MemoryErrors => _memoryErrors;
+    public long TimeoutErrors => _timeoutErrors;
+    public long CriticalErrors => _criticalErrors;
+    public long RecoveredErrors => _recoveredErrors;
+    
+    public ErrorStatistics() { }
+    
+    public ErrorStatistics(long totalErrors, long networkErrors, long authenticationErrors, 
+        long validationErrors, long memoryErrors, long timeoutErrors, long criticalErrors, long recoveredErrors)
+    {
+        _totalErrors = totalErrors;
+        _networkErrors = networkErrors;
+        _authenticationErrors = authenticationErrors;
+        _validationErrors = validationErrors;
+        _memoryErrors = memoryErrors;
+        _timeoutErrors = timeoutErrors;
+        _criticalErrors = criticalErrors;
+        _recoveredErrors = recoveredErrors;
+    }
+    
+    public void IncrementTotalErrors() => Interlocked.Increment(ref _totalErrors);
+    public void IncrementNetworkErrors() => Interlocked.Increment(ref _networkErrors);
+    public void IncrementAuthenticationErrors() => Interlocked.Increment(ref _authenticationErrors);
+    public void IncrementValidationErrors() => Interlocked.Increment(ref _validationErrors);
+    public void IncrementMemoryErrors() => Interlocked.Increment(ref _memoryErrors);
+    public void IncrementTimeoutErrors() => Interlocked.Increment(ref _timeoutErrors);
+    public void IncrementCriticalErrors() => Interlocked.Increment(ref _criticalErrors);
+    public void IncrementRecoveredErrors() => Interlocked.Increment(ref _recoveredErrors);
 }
 
 public enum ErrorAction

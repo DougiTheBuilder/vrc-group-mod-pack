@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using VrcGroupGuardian.Infrastructure;
@@ -742,6 +743,7 @@ public class AuthResult
 {
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
+    public string? Message { get; set; }
     public string? AuthToken { get; set; }
     public bool RequiresTwoFactor { get; set; }
 }

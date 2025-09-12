@@ -25,7 +25,7 @@ public class SetupWizardViewModel : INotifyPropertyChanged
     private string _twoFactorCode = "";
     private string _authenticationStatus = "";
     private bool _isAuthenticated;
-    private GroupInstance? _selectedGroup;
+    private GroupInfo? _selectedGroup;
     private string _statusMessage = "Ready to begin setup";
     
     // Policy configuration
@@ -128,9 +128,9 @@ public class SetupWizardViewModel : INotifyPropertyChanged
     }
 
     // Group selection properties
-    public ObservableCollection<GroupInstance> AvailableGroups { get; } = new();
+    public ObservableCollection<GroupInfo> AvailableGroups { get; } = new();
 
-    public GroupInstance? SelectedGroup
+    public GroupInfo? SelectedGroup
     {
         get => _selectedGroup;
         set

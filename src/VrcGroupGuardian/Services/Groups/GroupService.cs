@@ -9,8 +9,10 @@ namespace VrcGroupGuardian.Services.Groups;
 public interface IGroupService
 {
     Task<List<GroupInfo>> GetAvailableGroupsAsync();
+    Task<List<GroupInfo>> GetUserGroupsAsync();
     Task<GroupInfo?> GetGroupInfoAsync(string groupId);
     Task<bool> SelectGroupAsync(string groupId);
+    Task<bool> SetSelectedGroupAsync(GroupInfo groupInfo);
     Task<GroupInfo?> GetSelectedGroupAsync();
     Task<List<string>> GetCurrentUserPermissionsAsync(string groupId);
     Task<bool> HasPermissionAsync(string groupId, string permission);
@@ -74,6 +76,12 @@ public class GroupService : IGroupService
             _logger.LogError(ex, "Failed to get available groups");
             return new List<GroupInfo>();
         }
+    }
+
+    public async Task<List<GroupInfo>> GetUserGroupsAsync()
+    {
+        // GetUserGroupsAsync is typically the same as GetAvailableGroupsAsync for user's own groups
+        return await GetAvailableGroupsAsync();
     }
 
     public async Task<GroupInfo?> GetGroupInfoAsync(string groupId)
@@ -169,6 +177,50 @@ public class GroupService : IGroupService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to select group {GroupId}", groupId);
+            return false;
+        }
+        finally
+        {
+            _groupLock.Release();
+        }
+    }
+
+    public async Task<bool> SetSelectedGroupAsync(GroupInfo groupInfo)
+    {
+        if (groupInfo == null)
+            return false;
+
+        await _groupLock.WaitAsync();
+        try
+        {
+            if (!await _authService.IsAuthenticatedAsync())
+            {
+                _logger.LogWarning("Cannot set selected group: not authenticated");
+                return false;
+            }
+
+            // Update policy configuration with selected group
+            var policy = await _settingsStore.LoadPolicyConfigurationAsync();
+            policy.GroupId = groupInfo.GroupId;
+            policy.GroupName = groupInfo.GroupName;
+            
+            var saved = await _settingsStore.SavePolicyConfigurationAsync(policy);
+            if (!saved)
+            {
+                _logger.LogError("Failed to save group selection to policy configuration");
+                return false;
+            }
+
+            _selectedGroup = groupInfo;
+            
+            _logger.LogInformation("Set selected group to {GroupName} ({GroupId})", 
+                groupInfo.GroupName, groupInfo.GroupId);
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set selected group {GroupId}", groupInfo.GroupId);
             return false;
         }
         finally

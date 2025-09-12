@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -26,7 +27,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
     private string _username = "";
     private string _twoFactorCode = "";
     private string _currentGroupName = "No Group Selected";
-    private GroupInstance? _selectedGroup;
+    private GroupInfo? _selectedGroup;
     private PolicyConfiguration _policyConfiguration = new();
     private string _statusText = "Ready";
     
@@ -34,7 +35,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
     private bool _startWithWindows;
     private bool _minimizeToTray;
     private bool _highContrastTheme;
-    private bool _dryRunMode;
     private string _selectedLogLevel = "Information";
 
     public SettingsViewModel(
@@ -102,7 +102,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
         set => SetProperty(ref _currentGroupName, value);
     }
 
-    public GroupInstance? SelectedGroup
+    public GroupInfo? SelectedGroup
     {
         get => _selectedGroup;
         set => SetProperty(ref _selectedGroup, value);
@@ -112,7 +112,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
         ? $"Ready to manage {SelectedGroup.GroupName}" 
         : "Select a group to begin monitoring";
 
-    public ObservableCollection<GroupInstance> AvailableGroups { get; } = new();
+    public ObservableCollection<GroupInfo> AvailableGroups { get; } = new();
 
     // Policy Configuration Properties
     public int GracePeriodSeconds
@@ -741,12 +741,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
             : "High contrast theme disabled";
     }
 
-    private async void OnAuthenticationStateChanged(object? sender, AuthenticationStateChangedEventArgs e)
+    private async void OnAuthenticationStateChanged(object? sender, bool isAuthenticated)
     {
         App.Current.Dispatcher.Invoke(async () =>
         {
             await UpdateAuthenticationStatus();
-            if (e.IsAuthenticated)
+            if (isAuthenticated)
             {
                 await RefreshGroups();
             }
@@ -759,9 +759,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
     }
 
     // Auto-save settings when properties change
-    protected override bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    protected virtual bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
-        if (base.SetProperty(ref field, value, propertyName))
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        
+        field = value;
+        OnPropertyChanged(propertyName);
+        
+        if (true)
         {
             // Auto-save application settings
             if (propertyName is nameof(StartWithWindows) or nameof(MinimizeToTray) or 
@@ -781,11 +786,4 @@ public class SettingsViewModel : INotifyPropertyChanged, IRefreshable
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    protected virtual bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
-    }
 }

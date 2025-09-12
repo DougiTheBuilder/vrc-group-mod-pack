@@ -51,3 +51,11 @@ public enum LogLevel
     Warn,
     Error
 }
+
+public enum AuditSeverity
+{
+    Low,
+    Medium,
+    High,
+    Critical
+}

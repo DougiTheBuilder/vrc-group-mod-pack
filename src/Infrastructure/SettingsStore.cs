@@ -10,6 +10,7 @@ public interface ISettingsStore
     Task<bool> SavePolicyConfigurationAsync(PolicyConfiguration config);
     Task<T?> LoadSettingAsync<T>(string key) where T : class;
     Task<bool> SaveSettingAsync<T>(string key, T value) where T : class;
+    Task<bool> SetSettingAsync(string key, object value);
     Task<bool> DeleteSettingAsync(string key);
     Task<Dictionary<string, object>> LoadAllSettingsAsync();
     Task<bool> BackupSettingsAsync(string backupPath);
@@ -153,6 +154,33 @@ public class SettingsStore : ISettingsStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save setting {Key}", key);
+            return false;
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    public async Task<bool> SetSettingAsync(string key, object value)
+    {
+        if (string.IsNullOrEmpty(key) || value == null)
+            return false;
+
+        var settingFile = GetSettingFilePath(key);
+        
+        await _fileLock.WaitAsync();
+        try
+        {
+            var json = JsonSerializer.Serialize(value, JsonOptions);
+            await File.WriteAllTextAsync(settingFile, json);
+            
+            _logger.LogDebug("Set setting {Key} to {Value}", key, value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set setting {Key}", key);
             return false;
         }
         finally

@@ -4,17 +4,17 @@
 winexe
 C#
 .cs
-/home/dougithebuilder/projects/vrc-group-mod-pack/src/VrcGroupGuardian/obj/Debug/net8.0-windows/win-x64/
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\obj\Debug\net8.0-windows\win-x64\
 VrcGroupGuardian
 none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP
-/home/dougithebuilder/projects/vrc-group-mod-pack/src/VrcGroupGuardian/App.xaml
-11407045341
+C:\Projects\vrc-group-mod-pack\vrc-group-mod-pack\src\VrcGroupGuardian\App.xaml
+61989085110
 
-4-588409251
-2331469827444
-MainWindow.xaml;
+481310511946
+238-1017772650
+MainWindow.xaml;Views\AuditView.xaml;Views\InstancesView.xaml;Views\MembersView.xaml;Views\SettingsView.xaml;Views\SetupWizardView.xaml;
 
 False
 

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.IO;
+using System.Text;
 using VrcGroupGuardian.Models;
 using VrcGroupGuardian.Services.Auth;
 using VrcGroupGuardian.Services.Groups;
@@ -11,6 +13,7 @@ public interface IMembersService
 {
     Task<List<GroupMember>> GetGroupMembersAsync(string groupId);
     Task<GroupMember?> GetMemberAsync(string groupId, string userId);
+    Task<GroupMember?> GetMemberDetailsAsync(string groupId, string userId);
     Task<List<GroupMember>> SearchMembersAsync(string groupId, string searchTerm);
     Task<List<GroupMember>> GetMembersByRoleAsync(string groupId, string role);
     Task<MemberActionResult> KickMemberAsync(string groupId, string userId, string reason);
@@ -18,7 +21,15 @@ public interface IMembersService
     Task<MemberActionResult> UnbanMemberAsync(string groupId, string userId);
     Task<BanStatus> GetMemberBanStatusAsync(string groupId, string userId);
     Task<BulkMemberResult> BulkKickMembersAsync(string groupId, string[] memberIds, string reason);
+    Task<BulkMemberResult> BulkBanMembersAsync(string groupId, string[] memberIds, string reason);
     Task<bool> RefreshMemberCacheAsync(string groupId);
+    Task<ExportResult> ExportMembersAsync(string groupId, List<GroupMember> members);
+
+    event EventHandler<MemberJoinedEventArgs>? MemberJoined;
+    event EventHandler<MemberLeftEventArgs>? MemberLeft;
+    event EventHandler<MemberUpdatedEventArgs>? MemberUpdated;
+    event EventHandler<MemberActionEventArgs>? MemberKicked;
+    event EventHandler<MemberActionEventArgs>? MemberBanned;
 }
 
 public class MembersService : IMembersService
@@ -30,6 +41,12 @@ public class MembersService : IMembersService
     
     private readonly ConcurrentDictionary<string, CachedMemberList> _memberCache = new();
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(5);
+
+    public event EventHandler<MemberJoinedEventArgs>? MemberJoined;
+    public event EventHandler<MemberLeftEventArgs>? MemberLeft;
+    public event EventHandler<MemberUpdatedEventArgs>? MemberUpdated;
+    public event EventHandler<MemberActionEventArgs>? MemberKicked;
+    public event EventHandler<MemberActionEventArgs>? MemberBanned;
 
     public MembersService(
         IVrcApiService vrcApiService,
@@ -428,6 +445,71 @@ public class MembersService : IMembersService
         return result;
     }
 
+    public async Task<GroupMember?> GetMemberDetailsAsync(string groupId, string userId)
+    {
+        // For now, just delegate to GetMemberAsync - could be enhanced with more detailed info
+        return await GetMemberAsync(groupId, userId);
+    }
+
+    public async Task<BulkMemberResult> BulkBanMembersAsync(string groupId, string[] memberIds, string reason)
+    {
+        var result = new BulkMemberResult
+        {
+            TotalAttempted = memberIds.Length,
+            SuccessfulMembers = new List<string>(),
+            FailedMembers = new Dictionary<string, string>()
+        };
+
+        if (!await _authService.IsAuthenticatedAsync())
+        {
+            foreach (var memberId in memberIds)
+            {
+                result.FailedMembers[memberId] = "Not authenticated";
+            }
+            result.FailedActions = memberIds.Length;
+            return result;
+        }
+
+        if (!await _groupService.CanManageMembersAsync(groupId))
+        {
+            foreach (var memberId in memberIds)
+            {
+                result.FailedMembers[memberId] = "Insufficient permissions";
+            }
+            result.FailedActions = memberIds.Length;
+            return result;
+        }
+
+        foreach (var memberId in memberIds)
+        {
+            try
+            {
+                var banResult = await BanMemberAsync(groupId, memberId, reason);
+                if (banResult.Success)
+                {
+                    result.SuccessfulMembers.Add(memberId);
+                    result.SuccessfulActions++;
+                }
+                else
+                {
+                    result.FailedMembers[memberId] = banResult.Message ?? "Unknown error";
+                    result.FailedActions++;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.FailedMembers[memberId] = ex.Message;
+                result.FailedActions++;
+                _logger.LogError(ex, "Failed to ban member {MemberId} from group {GroupId}", memberId, groupId);
+            }
+        }
+
+        _logger.LogInformation("Bulk ban completed for group {GroupId}: {Successful}/{Total} successful", 
+            groupId, result.SuccessfulActions, result.TotalAttempted);
+
+        return result;
+    }
+
     public async Task<bool> RefreshMemberCacheAsync(string groupId)
     {
         if (string.IsNullOrEmpty(groupId))
@@ -450,6 +532,57 @@ public class MembersService : IMembersService
         {
             _logger.LogError(ex, "Failed to refresh member cache for group {GroupId}", groupId);
             return false;
+        }
+    }
+
+    public async Task<ExportResult> ExportMembersAsync(string groupId, List<GroupMember> members)
+    {
+        if (string.IsNullOrEmpty(groupId) || members == null || members.Count == 0)
+        {
+            return new ExportResult
+            {
+                Success = false,
+                Message = "Invalid parameters or no members to export",
+                RecordCount = 0
+            };
+        }
+
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"members_export_{groupId}_{timestamp}.csv";
+            var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), fileName);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("UserId,DisplayName,Username,Role,JoinedAt");
+
+            foreach (var member in members)
+            {
+                csv.AppendLine($"{member.UserId},{member.DisplayName},{member.Username},{member.Role},{member.JoinedAt}");
+            }
+
+            await File.WriteAllTextAsync(filePath, csv.ToString());
+
+            _logger.LogInformation("Exported {MemberCount} members to {FilePath}", members.Count, filePath);
+
+            return new ExportResult
+            {
+                Success = true,
+                Message = "Export completed successfully",
+                FilePath = filePath,
+                RecordCount = members.Count,
+                Format = "CSV"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export members for group {GroupId}", groupId);
+            return new ExportResult
+            {
+                Success = false,
+                Message = $"Export failed: {ex.Message}",
+                RecordCount = 0
+            };
         }
     }
 

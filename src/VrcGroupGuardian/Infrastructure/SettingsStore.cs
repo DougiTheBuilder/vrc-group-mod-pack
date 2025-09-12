@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.IO;
 using System.Text.Json;
 using VrcGroupGuardian.Models;
 
@@ -9,11 +10,15 @@ public interface ISettingsStore
     Task<PolicyConfiguration> LoadPolicyConfigurationAsync();
     Task<bool> SavePolicyConfigurationAsync(PolicyConfiguration config);
     Task<T?> LoadSettingAsync<T>(string key) where T : class;
+    Task<T?> GetSettingAsync<T>(string key) where T : class;
+    Task<T> GetSettingAsync<T>(string key, T defaultValue);
     Task<bool> SaveSettingAsync<T>(string key, T value) where T : class;
+    Task<bool> SetSettingAsync(string key, object value);
     Task<bool> DeleteSettingAsync(string key);
     Task<Dictionary<string, object>> LoadAllSettingsAsync();
     Task<bool> BackupSettingsAsync(string backupPath);
     Task<bool> RestoreSettingsAsync(string backupPath);
+    Task<bool> ClearAllSettingsAsync();
 }
 
 public class SettingsStore : ISettingsStore
@@ -134,6 +139,62 @@ public class SettingsStore : ISettingsStore
         }
     }
 
+    public async Task<T?> GetSettingAsync<T>(string key) where T : class
+    {
+        // GetSettingAsync is an alias for LoadSettingAsync for compatibility
+        return await LoadSettingAsync<T>(key);
+    }
+
+    public async Task<T> GetSettingAsync<T>(string key, T defaultValue)
+    {
+        if (typeof(T).IsClass)
+        {
+            // For reference types, use generic casting
+            var settingFile = GetSettingFilePath(key);
+            if (!File.Exists(settingFile))
+                return defaultValue;
+
+            try
+            {
+                await _fileLock.WaitAsync();
+                var json = await File.ReadAllTextAsync(settingFile);
+                var result = JsonSerializer.Deserialize<T>(json, JsonOptions);
+                return result ?? defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+            finally
+            {
+                _fileLock.Release();
+            }
+        }
+        else
+        {
+            // Handle value types
+            var settingFile = GetSettingFilePath(key);
+            if (!File.Exists(settingFile))
+                return defaultValue;
+
+            try
+            {
+                await _fileLock.WaitAsync();
+                var json = await File.ReadAllTextAsync(settingFile);
+                var result = JsonSerializer.Deserialize<T>(json, JsonOptions);
+                return result ?? defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+            finally
+            {
+                _fileLock.Release();
+            }
+        }
+    }
+
     public async Task<bool> SaveSettingAsync<T>(string key, T value) where T : class
     {
         if (string.IsNullOrEmpty(key) || value == null)
@@ -153,6 +214,33 @@ public class SettingsStore : ISettingsStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save setting {Key}", key);
+            return false;
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    public async Task<bool> SetSettingAsync(string key, object value)
+    {
+        if (string.IsNullOrEmpty(key) || value == null)
+            return false;
+
+        var settingFile = GetSettingFilePath(key);
+        
+        await _fileLock.WaitAsync();
+        try
+        {
+            var json = JsonSerializer.Serialize(value, JsonOptions);
+            await File.WriteAllTextAsync(settingFile, json);
+            
+            _logger.LogDebug("Set setting {Key} to {Value}", key, value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to set setting {Key}", key);
             return false;
         }
         finally
@@ -302,6 +390,38 @@ public class SettingsStore : ISettingsStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to restore settings from {BackupPath}", backupPath);
+            return false;
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
+
+    public async Task<bool> ClearAllSettingsAsync()
+    {
+        await _fileLock.WaitAsync();
+        try
+        {
+            if (!Directory.Exists(_settingsDirectory))
+                return true;
+
+            var settingFiles = Directory.GetFiles(_settingsDirectory, "*.json");
+            foreach (var file in settingFiles)
+            {
+                // Don't delete the policy configuration file
+                if (!file.Equals(_policyConfigFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Delete(file);
+                }
+            }
+            
+            _logger.LogInformation("Cleared all settings except policy configuration");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear all settings");
             return false;
         }
         finally

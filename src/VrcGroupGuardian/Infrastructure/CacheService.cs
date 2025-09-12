@@ -42,12 +42,12 @@ public class CacheService : ICacheService, IDisposable
             if (value != null)
             {
                 _accessTimes[cacheKey] = DateTime.UtcNow;
-                Interlocked.Increment(ref _statistics.Hits);
+                _statistics.IncrementHits();
                 _logger.Debug("Cache hit for key: {Key}", cacheKey);
             }
             else
             {
-                Interlocked.Increment(ref _statistics.Misses);
+                _statistics.IncrementMisses();
                 _logger.Debug("Cache miss for key: {Key}", cacheKey);
             }
 
@@ -56,7 +56,7 @@ public class CacheService : ICacheService, IDisposable
         catch (Exception ex)
         {
             _logger.Warning(ex, "Error retrieving from cache for key: {Key}", key);
-            Interlocked.Increment(ref _statistics.Errors);
+            _statistics.IncrementErrors();
             return Task.FromResult<T?>(null);
         }
     }
@@ -71,13 +71,13 @@ public class CacheService : ICacheService, IDisposable
             _cache.Set(cacheKey, value, policy);
             _accessTimes[cacheKey] = DateTime.UtcNow;
             
-            Interlocked.Increment(ref _statistics.Sets);
+            _statistics.IncrementSets();
             _logger.Debug("Cached item with key: {Key}, expiry: {Expiry}", cacheKey, policy.AbsoluteExpiration);
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Error setting cache for key: {Key}", key);
-            Interlocked.Increment(ref _statistics.Errors);
+            _statistics.IncrementErrors();
         }
 
         return Task.CompletedTask;
@@ -91,13 +91,13 @@ public class CacheService : ICacheService, IDisposable
             _cache.Remove(cacheKey);
             _accessTimes.TryRemove(cacheKey, out _);
             
-            Interlocked.Increment(ref _statistics.Removals);
+            _statistics.IncrementRemovals();
             _logger.Debug("Removed cache item with key: {Key}", cacheKey);
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Error removing from cache for key: {Key}", key);
-            Interlocked.Increment(ref _statistics.Errors);
+            _statistics.IncrementErrors();
         }
 
         return Task.CompletedTask;
@@ -121,7 +121,7 @@ public class CacheService : ICacheService, IDisposable
         catch (Exception ex)
         {
             _logger.Warning(ex, "Error clearing cache");
-            Interlocked.Increment(ref _statistics.Errors);
+            _statistics.IncrementErrors();
         }
 
         return Task.CompletedTask;
@@ -153,16 +153,16 @@ public class CacheService : ICacheService, IDisposable
 
     public CacheStatistics GetStatistics()
     {
-        return new CacheStatistics
-        {
-            Hits = _statistics.Hits,
-            Misses = _statistics.Misses,
-            Sets = _statistics.Sets,
-            Removals = _statistics.Removals,
-            Errors = _statistics.Errors,
-            HitRatio = _statistics.TotalRequests > 0 ? (double)_statistics.Hits / _statistics.TotalRequests : 0,
-            ItemCount = _accessTimes.Count
-        };
+        return new CacheStatistics(
+            _statistics.Hits,
+            _statistics.Misses,
+            _statistics.Sets,
+            _statistics.Removals,
+            _statistics.Errors,
+            _statistics.Expirations,
+            _statistics.TotalRequests > 0 ? (double)_statistics.Hits / _statistics.TotalRequests : 0,
+            _accessTimes.Count
+        );
     }
 
     private string GenerateCacheKey<T>(string key)
@@ -191,7 +191,7 @@ public class CacheService : ICacheService, IDisposable
             
             if (args.RemovedReason == CacheEntryRemovedReason.Expired)
             {
-                Interlocked.Increment(ref _statistics.Expirations);
+                _statistics.IncrementExpirations();
                 _logger.Debug("Cache item expired: {Key}", args.CacheItem.Key);
             }
         };
@@ -236,24 +236,57 @@ public class CacheService : ICacheService, IDisposable
 
 public class CacheStatistics
 {
-    public long Hits { get; set; }
-    public long Misses { get; set; }
-    public long Sets { get; set; }
-    public long Removals { get; set; }
-    public long Errors { get; set; }
-    public long Expirations { get; set; }
+    private long _hits;
+    private long _misses;
+    
+    public long Hits => _hits;
+    public long Misses => _misses;
+    
+    public void IncrementHits() => Interlocked.Increment(ref _hits);
+    public void IncrementMisses() => Interlocked.Increment(ref _misses);
+    
+    private long _sets;
+    private long _removals;
+    private long _errors;
+    private long _expirations;
+    
+    public long Sets => _sets;
+    public long Removals => _removals;
+    public long Errors => _errors;
+    public long Expirations => _expirations;
+    
+    public void IncrementSets() => Interlocked.Increment(ref _sets);
+    public void IncrementRemovals() => Interlocked.Increment(ref _removals);
+    public void IncrementErrors() => Interlocked.Increment(ref _errors);
+    public void IncrementExpirations() => Interlocked.Increment(ref _expirations);
     public long TotalRequests => Hits + Misses;
     public double HitRatio { get; set; }
     public int ItemCount { get; set; }
+    
+    // Constructor for creating snapshots
+    public CacheStatistics(long hits, long misses, long sets, long removals, long errors, long expirations, double hitRatio, int itemCount)
+    {
+        _hits = hits;
+        _misses = misses;
+        _sets = sets;
+        _removals = removals;
+        _errors = errors;
+        _expirations = expirations;
+        HitRatio = hitRatio;
+        ItemCount = itemCount;
+    }
+    
+    // Default constructor
+    public CacheStatistics() { }
 
     public void Reset()
     {
-        Hits = 0;
-        Misses = 0;
-        Sets = 0;
-        Removals = 0;
-        Errors = 0;
-        Expirations = 0;
+        _hits = 0;
+        _misses = 0;
+        _sets = 0;
+        _removals = 0;
+        _errors = 0;
+        _expirations = 0;
         HitRatio = 0;
         ItemCount = 0;
     }

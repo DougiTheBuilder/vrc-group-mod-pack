@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.IO;
 using System.Management;
 using System.Reflection;
 using System.Runtime;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace VrcGroupGuardian.Infrastructure;

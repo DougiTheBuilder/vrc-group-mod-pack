@@ -245,7 +245,14 @@ public class MembersViewModel : INotifyPropertyChanged, IRefreshable
         {
             StatusText = $"Loading details for {member.DisplayName}...";
             
-            var detailedMember = await _membersService.GetMemberDetailsAsync(member.UserId);
+            var selectedGroup = await _groupService.GetSelectedGroupAsync();
+            if (selectedGroup == null)
+            {
+                StatusText = "No group selected";
+                return;
+            }
+            
+            var detailedMember = await _membersService.GetMemberDetailsAsync(selectedGroup.GroupId, member.UserId);
             if (detailedMember != null)
             {
                 // TODO: Show member details dialog or navigate to member detail view
@@ -277,7 +284,7 @@ public class MembersViewModel : INotifyPropertyChanged, IRefreshable
                 return;
             }
 
-            var result = await _membersService.KickMemberAsync(selectedGroup.GroupId, member.UserId);
+            var result = await _membersService.KickMemberAsync(selectedGroup.GroupId, member.UserId, "Manual kick operation");
             StatusText = result.Success ? $"Successfully kicked {member.DisplayName}" : result.Message;
             
             if (result.Success)
@@ -306,7 +313,7 @@ public class MembersViewModel : INotifyPropertyChanged, IRefreshable
                 return;
             }
 
-            var result = await _membersService.BanMemberAsync(selectedGroup.GroupId, member.UserId);
+            var result = await _membersService.BanMemberAsync(selectedGroup.GroupId, member.UserId, "Manual ban operation");
             StatusText = result.Success ? $"Successfully banned {member.DisplayName}" : result.Message;
             
             if (result.Success)
@@ -336,7 +343,7 @@ public class MembersViewModel : INotifyPropertyChanged, IRefreshable
             }
 
             var memberIds = SelectedMembers.Select(m => m.UserId).ToList();
-            var result = await _membersService.BulkKickMembersAsync(selectedGroup.GroupId, memberIds);
+            var result = await _membersService.BulkKickMembersAsync(selectedGroup.GroupId, memberIds.ToArray(), "Bulk kick operation");
             
             StatusText = result.Success 
                 ? $"Successfully kicked {result.SuccessCount} members" 
@@ -367,7 +374,7 @@ public class MembersViewModel : INotifyPropertyChanged, IRefreshable
             }
 
             var memberIds = SelectedMembers.Select(m => m.UserId).ToList();
-            var result = await _membersService.BulkBanMembersAsync(selectedGroup.GroupId, memberIds);
+            var result = await _membersService.BulkBanMembersAsync(selectedGroup.GroupId, memberIds.ToArray(), "Bulk ban operation");
             
             StatusText = result.Success 
                 ? $"Successfully banned {result.SuccessCount} members" 

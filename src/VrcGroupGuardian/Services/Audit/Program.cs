@@ -11,7 +11,7 @@ public class Program
 {
     private static IServiceProvider? _serviceProvider;
 
-    public static async Task<int> Main(string[] args)
+    public static async Task<int> RunCli(string[] args)
     {
         ConfigureServices();
         
@@ -51,7 +51,7 @@ public class Program
     {
         var services = new ServiceCollection();
         
-        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
+        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Warning));
         services.AddSingleton<ISettingsStore, SettingsStore>();
         services.AddSingleton<IRateLimitService, RateLimitService>();
         services.AddSingleton<ISecureStorage, SecureStorage>();

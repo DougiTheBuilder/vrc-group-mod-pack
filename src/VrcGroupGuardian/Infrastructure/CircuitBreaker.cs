@@ -46,7 +46,7 @@ public class CircuitBreaker : ICircuitBreaker
         if (!CanExecute())
         {
             _logger.Warning("Circuit breaker is open, returning fallback value");
-            Interlocked.Increment(ref _statistics.CircuitOpenCount);
+            _statistics.IncrementCircuitOpenCount();
             return fallbackValue;
         }
 
@@ -75,7 +75,7 @@ public class CircuitBreaker : ICircuitBreaker
         if (!CanExecute())
         {
             _logger.Warning("Circuit breaker is open, skipping operation");
-            Interlocked.Increment(ref _statistics.CircuitOpenCount);
+            _statistics.IncrementCircuitOpenCount();
             return;
         }
 
@@ -114,17 +114,15 @@ public class CircuitBreaker : ICircuitBreaker
 
     public CircuitBreakerStatistics GetStatistics()
     {
-        return new CircuitBreakerStatistics
-        {
-            CurrentState = State,
-            TotalCalls = _statistics.TotalCalls,
-            SuccessfulCalls = _statistics.SuccessfulCalls,
-            FailedCalls = _statistics.FailedCalls,
-            CircuitOpenCount = _statistics.CircuitOpenCount,
-            TimeoutCount = _statistics.TimeoutCount,
-            CurrentFailureCount = _failureCount,
-            LastFailureTime = _lastFailureTime
-        };
+        return new CircuitBreakerStatistics(
+            State,
+            _statistics.TotalCalls,
+            _statistics.SuccessfulCalls,
+            _statistics.FailedCalls,
+            _statistics.CircuitOpenCount,
+            _statistics.TimeoutCount,
+            _failureCount,
+            _lastFailureTime);
     }
 
     private bool CanExecute()
@@ -156,7 +154,7 @@ public class CircuitBreaker : ICircuitBreaker
 
     private async Task<T> ExecuteWithTimeout<T>(Func<Task<T>> operation)
     {
-        Interlocked.Increment(ref _statistics.TotalCalls);
+        _statistics.IncrementTotalCalls();
 
         using var cancellationTokenSource = new CancellationTokenSource(_options.Timeout);
         
@@ -171,13 +169,13 @@ public class CircuitBreaker : ICircuitBreaker
             }
             else
             {
-                Interlocked.Increment(ref _statistics.TimeoutCount);
+                _statistics.IncrementTimeoutCount();
                 throw new TimeoutException($"Operation timed out after {_options.Timeout.TotalSeconds} seconds");
             }
         }
         catch (OperationCanceledException) when (cancellationTokenSource.Token.IsCancellationRequested)
         {
-            Interlocked.Increment(ref _statistics.TimeoutCount);
+            _statistics.IncrementTimeoutCount();
             throw new TimeoutException($"Operation timed out after {_options.Timeout.TotalSeconds} seconds");
         }
     }
@@ -186,7 +184,7 @@ public class CircuitBreaker : ICircuitBreaker
     {
         lock (_lock)
         {
-            Interlocked.Increment(ref _statistics.SuccessfulCalls);
+            _statistics.IncrementSuccessfulCalls();
             
             if (_state == CircuitBreakerState.HalfOpen)
             {
@@ -206,7 +204,7 @@ public class CircuitBreaker : ICircuitBreaker
     {
         lock (_lock)
         {
-            Interlocked.Increment(ref _statistics.FailedCalls);
+            _statistics.IncrementFailedCalls();
             _failureCount++;
             _lastFailureTime = DateTime.UtcNow;
             
@@ -247,15 +245,44 @@ public enum CircuitBreakerState
 
 public class CircuitBreakerStatistics
 {
+    private long _totalCalls;
+    private long _successfulCalls;
+    private long _failedCalls;
+    private long _circuitOpenCount;
+    private long _timeoutCount;
+    private int _currentFailureCount;
+    
     public CircuitBreakerState CurrentState { get; set; }
-    public long TotalCalls { get; set; }
-    public long SuccessfulCalls { get; set; }
-    public long FailedCalls { get; set; }
-    public long CircuitOpenCount { get; set; }
-    public long TimeoutCount { get; set; }
-    public int CurrentFailureCount { get; set; }
+    public long TotalCalls => _totalCalls;
+    public long SuccessfulCalls => _successfulCalls;
+    public long FailedCalls => _failedCalls;
+    public long CircuitOpenCount => _circuitOpenCount;
+    public long TimeoutCount => _timeoutCount;
+    public int CurrentFailureCount => _currentFailureCount;
     public DateTime LastFailureTime { get; set; }
+    
+    public CircuitBreakerStatistics() { }
+    
+    public CircuitBreakerStatistics(CircuitBreakerState currentState, long totalCalls, long successfulCalls, 
+        long failedCalls, long circuitOpenCount, long timeoutCount, int currentFailureCount, DateTime lastFailureTime)
+    {
+        CurrentState = currentState;
+        _totalCalls = totalCalls;
+        _successfulCalls = successfulCalls;
+        _failedCalls = failedCalls;
+        _circuitOpenCount = circuitOpenCount;
+        _timeoutCount = timeoutCount;
+        _currentFailureCount = currentFailureCount;
+        LastFailureTime = lastFailureTime;
+    }
     
     public double SuccessRate => TotalCalls > 0 ? (double)SuccessfulCalls / TotalCalls : 0;
     public double FailureRate => TotalCalls > 0 ? (double)FailedCalls / TotalCalls : 0;
+    
+    public void IncrementTotalCalls() => Interlocked.Increment(ref _totalCalls);
+    public void IncrementSuccessfulCalls() => Interlocked.Increment(ref _successfulCalls);
+    public void IncrementFailedCalls() => Interlocked.Increment(ref _failedCalls);
+    public void IncrementCircuitOpenCount() => Interlocked.Increment(ref _circuitOpenCount);
+    public void IncrementTimeoutCount() => Interlocked.Increment(ref _timeoutCount);
+    public void SetCurrentFailureCount(int count) => _currentFailureCount = count;
 }

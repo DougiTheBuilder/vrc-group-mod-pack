@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using Polly;
 using Polly.Extensions.Http;
 using System.Net;

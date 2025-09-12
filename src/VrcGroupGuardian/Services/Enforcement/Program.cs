@@ -14,7 +14,7 @@ public class Program
 {
     private static IServiceProvider? _serviceProvider;
 
-    public static async Task<int> Main(string[] args)
+    public static async Task<int> RunCli(string[] args)
     {
         ConfigureServices();
         
@@ -53,7 +53,7 @@ public class Program
     {
         var services = new ServiceCollection();
         
-        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information));
         services.AddSingleton<IRateLimitService, RateLimitService>();
         services.AddSingleton<ISecureStorage, SecureStorage>();
         services.AddSingleton<ISettingsStore, SettingsStore>();
@@ -172,15 +172,15 @@ public class Program
         }
 
         var subCommand = args[1].ToLower();
-        var config = await enforcementService.GetPolicyConfigurationAsync();
+        var policyConfig = await enforcementService.GetPolicyConfigurationAsync();
         
         switch (subCommand)
         {
             case "enable":
-                config.EnforcementEnabled = true;
+                policyConfig.EnforcementEnabled = true;
                 break;
             case "disable":
-                config.EnforcementEnabled = false;
+                policyConfig.EnforcementEnabled = false;
                 break;
             case "grace":
                 if (args.Length < 3 || !int.TryParse(args[2], out var gracePeriod))
@@ -194,7 +194,7 @@ public class Program
                     Console.WriteLine("Grace period must be between 60 and 300 seconds");
                     return 1;
                 }
-                config.GracePeriodSeconds = gracePeriod;
+                policyConfig.GracePeriodSeconds = gracePeriod;
                 break;
             case "polling":
                 if (args.Length < 3 || !int.TryParse(args[2], out var pollingInterval))
@@ -208,7 +208,7 @@ public class Program
                     Console.WriteLine("Polling interval must be between 45 and 90 seconds");
                     return 1;
                 }
-                config.PollingIntervalSeconds = pollingInterval;
+                policyConfig.PollingIntervalSeconds = pollingInterval;
                 break;
             case "notifications":
                 if (args.Length < 3)
@@ -221,7 +221,7 @@ public class Program
                     Console.WriteLine("Invalid value. Use 'true' or 'false'");
                     return 1;
                 }
-                config.NotificationsEnabled = notifications;
+                policyConfig.NotificationsEnabled = notifications;
                 break;
             case "ratelimit":
                 if (args.Length < 3 || !int.TryParse(args[2], out var rateLimit))
@@ -235,7 +235,7 @@ public class Program
                     Console.WriteLine("Rate limit must be between 1 and 100 requests per minute");
                     return 1;
                 }
-                config.RateLimitRequestsPerMinute = rateLimit;
+                policyConfig.RateLimitRequestsPerMinute = rateLimit;
                 break;
             default:
                 Console.WriteLine($"Unknown policy command: {subCommand}");
@@ -243,7 +243,7 @@ public class Program
                 return 1;
         }
 
-        var success = await enforcementService.UpdatePolicyConfigurationAsync(config);
+        var success = await enforcementService.UpdatePolicyConfigurationAsync(policyConfig);
         
         if (success)
         {

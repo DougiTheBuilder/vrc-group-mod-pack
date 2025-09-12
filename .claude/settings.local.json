@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --verbosity minimal)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --verbosity normal)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build)",
+      "Bash(findstr:*)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --no-restore)",
+      "Bash(Select-String \"error CS\")",
+      "Bash(Select-Object -First 15)",
+      "Bash(find:*)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" restore)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --configuration Release)",
+      "Bash(\"C:\\Program Files\\dotnet\\dotnet.exe\" build --configuration Release --no-restore)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

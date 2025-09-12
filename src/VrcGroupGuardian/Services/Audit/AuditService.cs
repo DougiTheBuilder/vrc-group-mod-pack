@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using VrcGroupGuardian.Infrastructure;
 using VrcGroupGuardian.Models;
 using VrcGroupGuardian.Services.VrcApi;
+using VrcGroupGuardian.ViewModels;
 
 namespace VrcGroupGuardian.Services.Audit;
 
@@ -19,11 +21,15 @@ public interface IAuditService
     
     Task<bool> ExportToCsvAsync(string filePath, DateTime? startDate = null, DateTime? endDate = null);
     Task<bool> ExportToJsonAsync(string filePath, DateTime? startDate = null, DateTime? endDate = null);
+    Task<ExportResult> ExportAuditRecordsAsync(DateTime startDate, DateTime endDate, AuditExportFormat format, Dictionary<string, object>? filters = null);
+    Task<ClearRecordsResult> ClearOldRecordsAsync(DateTime cutoffDate);
     Task<AuditStats> GetAuditStatsAsync(TimeSpan? period = null);
     Task<bool> PurgeOldRecordsAsync(TimeSpan retentionPeriod);
     Task<List<AuditRecord>> SyncWithVrchatAuditLogsAsync(string groupId);
     Task<bool> StartRealTimeLoggingAsync();
     Task<bool> StopRealTimeLoggingAsync();
+
+    event EventHandler<AuditRecordCreatedEventArgs>? AuditRecordCreated;
 }
 
 public class AuditService : IAuditService, IDisposable
@@ -37,6 +43,8 @@ public class AuditService : IAuditService, IDisposable
     private readonly Timer? _flushTimer;
     private readonly string _auditDirectory;
     private bool _isRealTimeLoggingActive;
+
+    public event EventHandler<AuditRecordCreatedEventArgs>? AuditRecordCreated;
 
     public AuditService(ISettingsStore settingsStore, IVrcApiService vrcApiService, ILogger<AuditService> logger)
     {
@@ -422,6 +430,91 @@ public class AuditService : IAuditService, IDisposable
         FlushAuditQueueAsync().Wait(TimeSpan.FromSeconds(5));
         _flushTimer?.Dispose();
         _auditLock?.Dispose();
+    }
+
+    public async Task<ExportResult> ExportAuditRecordsAsync(DateTime startDate, DateTime endDate, AuditExportFormat format, Dictionary<string, object>? filters = null)
+    {
+        try
+        {
+            var records = await GetAuditRecordsAsync(startDate, endDate);
+            
+            // Apply filters if provided
+            if (filters != null)
+            {
+                // Implementation of filtering logic would go here
+                // For now, we'll just use all records
+            }
+            
+            var exportDir = Path.Combine(AppContext.BaseDirectory, "exports");
+            Directory.CreateDirectory(exportDir);
+            
+            var fileName = $"audit_records_{startDate:yyyy-MM-dd}_to_{endDate:yyyy-MM-dd}.{format.ToString().ToLower()}";
+            var filePath = Path.Combine(exportDir, fileName);
+            
+            bool success;
+            switch (format)
+            {
+                case AuditExportFormat.Csv:
+                    success = await ExportToCsvAsync(filePath, startDate, endDate);
+                    break;
+                case AuditExportFormat.Json:
+                    success = await ExportToJsonAsync(filePath, startDate, endDate);
+                    break;
+                default:
+                    throw new ArgumentException($"Unsupported export format: {format}");
+            }
+            
+            return new ExportResult
+            {
+                Success = success,
+                FilePath = success ? filePath : null,
+                RecordCount = records.Count,
+                Format = format.ToString(),
+                Message = success ? "Export completed successfully" : "Export failed"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export audit records");
+            return new ExportResult
+            {
+                Success = false,
+                Message = $"Export failed: {ex.Message}",
+                RecordCount = 0,
+                Format = format.ToString()
+            };
+        }
+    }
+
+    public async Task<ClearRecordsResult> ClearOldRecordsAsync(DateTime cutoffDate)
+    {
+        try
+        {
+            var allRecords = await LoadAllAuditRecordsAsync();
+            var recordsToKeep = allRecords.Where(r => r.Timestamp >= cutoffDate).ToList();
+            var deletedCount = allRecords.Count - recordsToKeep.Count;
+            
+            await SaveAuditRecordsAsync(recordsToKeep);
+            
+            _logger.LogInformation("Cleared {DeletedCount} audit records older than {CutoffDate}", deletedCount, cutoffDate);
+            
+            return new ClearRecordsResult
+            {
+                Success = true,
+                RecordsDeleted = deletedCount,
+                Message = $"Successfully cleared {deletedCount} old records"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear old audit records");
+            return new ClearRecordsResult
+            {
+                Success = false,
+                RecordsDeleted = 0,
+                Message = $"Failed to clear records: {ex.Message}"
+            };
+        }
     }
 }
 

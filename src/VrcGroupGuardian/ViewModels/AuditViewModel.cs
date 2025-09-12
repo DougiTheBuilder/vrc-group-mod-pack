@@ -415,16 +415,22 @@ public class AuditViewModel : INotifyPropertyChanged, IRefreshable
         OnPropertyChanged(nameof(FilteredRecords));
     }
 
-    private AuditFilterCriteria GetCurrentFilters()
+    private Dictionary<string, object>? GetCurrentFilters()
     {
-        return new AuditFilterCriteria
-        {
-            FromDate = FromDate,
-            ToDate = ToDate,
-            Action = SelectedActionFilter != "All Actions" ? SelectedActionFilter : null,
-            Severity = SelectedSeverityFilter != "All Severities" ? SelectedSeverityFilter : null,
-            Username = !string.IsNullOrWhiteSpace(UserFilter) ? UserFilter : null
-        };
+        var filters = new Dictionary<string, object>();
+        
+        if (FromDate.HasValue)
+            filters["FromDate"] = FromDate.Value;
+        if (ToDate.HasValue)
+            filters["ToDate"] = ToDate.Value;
+        if (SelectedActionFilter != "All Actions")
+            filters["Action"] = SelectedActionFilter;
+        if (SelectedSeverityFilter != "All Severities")
+            filters["Severity"] = SelectedSeverityFilter;
+        if (!string.IsNullOrWhiteSpace(UserFilter))
+            filters["Username"] = UserFilter;
+            
+        return filters.Count > 0 ? filters : null;
     }
 
     private void OnAuditRecordCreated(object? sender, AuditRecordCreatedEventArgs e)

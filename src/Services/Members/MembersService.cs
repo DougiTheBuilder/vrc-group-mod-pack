@@ -11,6 +11,7 @@ public interface IMembersService
 {
     Task<List<GroupMember>> GetGroupMembersAsync(string groupId);
     Task<GroupMember?> GetMemberAsync(string groupId, string userId);
+    Task<GroupMember?> GetMemberDetailsAsync(string groupId, string userId);
     Task<List<GroupMember>> SearchMembersAsync(string groupId, string searchTerm);
     Task<List<GroupMember>> GetMembersByRoleAsync(string groupId, string role);
     Task<MemberActionResult> KickMemberAsync(string groupId, string userId, string reason);
@@ -18,6 +19,7 @@ public interface IMembersService
     Task<MemberActionResult> UnbanMemberAsync(string groupId, string userId);
     Task<BanStatus> GetMemberBanStatusAsync(string groupId, string userId);
     Task<BulkMemberResult> BulkKickMembersAsync(string groupId, string[] memberIds, string reason);
+    Task<BulkMemberResult> BulkBanMembersAsync(string groupId, string[] memberIds, string reason);
     Task<bool> RefreshMemberCacheAsync(string groupId);
 }
 
@@ -424,6 +426,71 @@ public class MembersService : IMembersService
 
         _logger.LogInformation("Bulk kick operation completed: {Successful}/{Total} successful", 
             result.SuccessfulActions, result.TotalAttempted);
+
+        return result;
+    }
+
+    public async Task<GroupMember?> GetMemberDetailsAsync(string groupId, string userId)
+    {
+        // For now, just delegate to GetMemberAsync - could be enhanced with more detailed info
+        return await GetMemberAsync(groupId, userId);
+    }
+
+    public async Task<BulkMemberResult> BulkBanMembersAsync(string groupId, string[] memberIds, string reason)
+    {
+        var result = new BulkMemberResult
+        {
+            TotalAttempted = memberIds.Length,
+            SuccessfulMembers = new List<string>(),
+            FailedMembers = new Dictionary<string, string>()
+        };
+
+        if (!await _authService.IsAuthenticatedAsync())
+        {
+            foreach (var memberId in memberIds)
+            {
+                result.FailedMembers[memberId] = "Not authenticated";
+            }
+            result.FailedActions = memberIds.Length;
+            return result;
+        }
+
+        if (!await _groupService.CanManageMembersAsync(groupId))
+        {
+            foreach (var memberId in memberIds)
+            {
+                result.FailedMembers[memberId] = "Insufficient permissions";
+            }
+            result.FailedActions = memberIds.Length;
+            return result;
+        }
+
+        foreach (var memberId in memberIds)
+        {
+            try
+            {
+                var banResult = await BanMemberAsync(groupId, memberId, reason);
+                if (banResult.Success)
+                {
+                    result.SuccessfulMembers.Add(memberId);
+                    result.SuccessfulActions++;
+                }
+                else
+                {
+                    result.FailedMembers[memberId] = banResult.ErrorMessage ?? "Unknown error";
+                    result.FailedActions++;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.FailedMembers[memberId] = ex.Message;
+                result.FailedActions++;
+                _logger.LogError(ex, "Failed to ban member {MemberId} from group {GroupId}", memberId, groupId);
+            }
+        }
+
+        _logger.LogInformation("Bulk ban completed for group {GroupId}: {Successful}/{Total} successful", 
+            groupId, result.SuccessfulActions, result.TotalAttempted);
 
         return result;
     }

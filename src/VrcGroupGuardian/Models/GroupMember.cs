@@ -10,6 +10,8 @@ public class GroupMember
     public string DisplayName { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+    public bool IsOnline { get; set; }
     public DateTime JoinedAt { get; set; }
     public DateTime LastSeen { get; set; }
     public MemberPermissionLevel PermissionLevel { get; set; }

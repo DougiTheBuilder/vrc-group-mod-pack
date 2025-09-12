@@ -12,7 +12,7 @@ public class Program
 {
     private static IServiceProvider? _serviceProvider;
 
-    public static async Task<int> Main(string[] args)
+    public static async Task<int> RunCli(string[] args)
     {
         ConfigureServices();
         

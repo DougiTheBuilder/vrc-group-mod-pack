@@ -5,6 +5,7 @@ public class AuditRecord
     public Guid Id { get; set; }
     public DateTime Timestamp { get; set; }
     public AuditActionType ActionType { get; set; }
+    public AuditSeverity Severity { get; set; }
     public string? ActorUserId { get; set; }
     public string? ActorDisplayName { get; set; }
     public AuditTargetType TargetType { get; set; }

@@ -7,10 +7,11 @@ namespace VrcGroupGuardian.Services.Auth;
 
 public interface IAuthService
 {
-    Task<AuthResult> LoginAsync(string username, string password);
+    Task<AuthResult> LoginAsync(string username, string password, string? twoFactorCode = null);
     Task<AuthResult> VerifyTwoFactorAsync(string code);
     Task<bool> LogoutAsync();
     Task<AuthenticationSession?> GetCurrentSessionAsync();
+    Task<CurrentUser?> GetCurrentUserAsync();
     Task<bool> RefreshSessionAsync();
     Task<bool> IsAuthenticatedAsync();
     Task<List<string>> GetGroupPermissionsAsync(string groupId);
@@ -35,18 +36,36 @@ public class AuthService : IAuthService
         _logger = logger;
     }
 
-    public async Task<AuthResult> LoginAsync(string username, string password)
+    public async Task<AuthResult> LoginAsync(string username, string password, string? twoFactorCode = null)
     {
         await _sessionLock.WaitAsync();
         try
         {
             _logger.LogInformation("Attempting login for user {Username}", username);
             
-            var result = await _vrcApiService.LoginAsync(username, password);
+            AuthResult result;
+            
+            if (!string.IsNullOrEmpty(twoFactorCode))
+            {
+                // First login to get 2FA challenge, then submit 2FA code
+                var initialResult = await _vrcApiService.LoginAsync(username, password);
+                if (initialResult.RequiresTwoFactor)
+                {
+                    result = await _vrcApiService.VerifyTwoFactorAsync(twoFactorCode);
+                }
+                else
+                {
+                    result = initialResult;
+                }
+            }
+            else
+            {
+                result = await _vrcApiService.LoginAsync(username, password);
+            }
             
             if (result.Success && !string.IsNullOrEmpty(result.AuthToken))
             {
-                await CreateSessionAsync(username, result.AuthToken, false);
+                await CreateSessionAsync(username, result.AuthToken, !string.IsNullOrEmpty(twoFactorCode));
                 await StoreCredentialsAsync(username, result.AuthToken);
                 
                 _logger.LogInformation("Login successful for user {Username}", username);
@@ -168,6 +187,22 @@ public class AuthService : IAuthService
         {
             _sessionLock.Release();
         }
+    }
+
+    public async Task<CurrentUser?> GetCurrentUserAsync()
+    {
+        var session = await GetCurrentSessionAsync();
+        if (session == null || !session.IsSessionValid())
+        {
+            return null;
+        }
+
+        return new CurrentUser
+        {
+            Id = session.UserId,
+            DisplayName = session.DisplayName,
+            Username = session.Username
+        };
     }
 
     public async Task<bool> RefreshSessionAsync()

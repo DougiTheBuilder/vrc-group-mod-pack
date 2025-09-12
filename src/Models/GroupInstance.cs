@@ -9,11 +9,13 @@ public class GroupInstance
     public string InstanceId { get; set; } = string.Empty;
     public string WorldName { get; set; } = string.Empty;
     public string WorldId { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
     public InstanceType InstanceType { get; set; }
     public bool AgeGated { get; set; }
     public int UserCount { get; set; }
     public int MaxUsers { get; set; }
     public string Region { get; set; } = string.Empty;
+    public string UserRole { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public InstanceStatus Status { get; set; }
     public TimeSpan? CountdownTimer { get; set; }

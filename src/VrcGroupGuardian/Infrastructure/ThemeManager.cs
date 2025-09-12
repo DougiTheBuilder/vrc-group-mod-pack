@@ -322,8 +322,8 @@ public class ThemeManager : IThemeManager
             // Keyboard navigation improvements
             if (Application.Current.MainWindow != null)
             {
-                Application.Current.MainWindow.KeyboardNavigation.TabNavigation = System.Windows.Input.KeyboardNavigationMode.Cycle;
-                Application.Current.MainWindow.KeyboardNavigation.DirectionalNavigation = System.Windows.Input.KeyboardNavigationMode.Cycle;
+                System.Windows.Input.KeyboardNavigation.SetTabNavigation(Application.Current.MainWindow, System.Windows.Input.KeyboardNavigationMode.Cycle);
+                System.Windows.Input.KeyboardNavigation.SetDirectionalNavigation(Application.Current.MainWindow, System.Windows.Input.KeyboardNavigationMode.Cycle);
             }
             
             // Focus visualization improvements are handled by the high contrast theme
