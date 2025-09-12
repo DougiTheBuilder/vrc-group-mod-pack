@@ -69,14 +69,14 @@
 - [x] T031 [P] Rate limiting service with token bucket in src/Infrastructure/RateLimitService.cs
 - [x] T032 [P] Settings store with local file persistence in src/Infrastructure/SettingsStore.cs
 
-## Phase 3.5: Business Services (Epics B, C, D, E)
-- [ ] T033 VrcApi service library in src/Services/VrcApi/VrcApiService.cs (depends on T030, T031)
-- [ ] T034 Auth service with login flow & 2FA in src/Services/Auth/AuthService.cs (depends on T029, T033)
-- [ ] T035 Group service with selection & permissions in src/Services/Groups/GroupService.cs (depends on T033, T034)
-- [ ] T036 Instances service with polling & monitoring in src/Services/Instances/InstancesService.cs (depends on T033, T035)
-- [ ] T037 Enforcement service with policy engine in src/Services/Enforcement/EnforcementService.cs (depends on T036)
-- [ ] T038 Members service with kick/ban operations in src/Services/Members/MembersService.cs (depends on T033, T035)
-- [ ] T039 Audit service with local logging & export in src/Services/Audit/AuditService.cs
+## Phase 3.5: Business Services (Epics B, C, D, E) ✅ COMPLETED
+- [x] T033 VrcApi service library in src/Services/VrcApi/VrcApiService.cs (depends on T030, T031)
+- [x] T034 Auth service with login flow & 2FA in src/Services/Auth/AuthService.cs (depends on T029, T033)
+- [x] T035 Group service with selection & permissions in src/Services/Groups/GroupService.cs (depends on T033, T034)
+- [x] T036 Instances service with polling & monitoring in src/Services/Instances/InstancesService.cs (depends on T033, T035)
+- [x] T037 Enforcement service with policy engine in src/Services/Enforcement/EnforcementService.cs (depends on T036)
+- [x] T038 Members service with kick/ban operations in src/Services/Members/MembersService.cs (depends on T033, T035)
+- [x] T039 Audit service with local logging & export in src/Services/Audit/AuditService.cs
 
 ## Phase 3.6: Service CLI Interfaces
 - [ ] T040 [P] Auth service CLI in src/Services/Auth/Program.cs (CLI entry point)
