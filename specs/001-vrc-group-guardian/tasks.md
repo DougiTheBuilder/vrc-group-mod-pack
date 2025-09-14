@@ -118,16 +118,21 @@
 - [x] T070 Release documentation and deployment guide
 
 ## Phase 4.1: Additional Tests (Outstanding Features)
-- [ ] T071 [P] Instance export & copy-link tests in tests/integration/InstanceExportTests.cs
-- [ ] T072 [P] Settings maintenance action tests in tests/unit/SettingsViewModelTests.cs
-- [ ] T073 [P] Member detail & pagination tests in tests/integration/MemberDetailsTests.cs
-- [ ] T074 [P] Audit record detail view tests in tests/unit/AuditViewModelTests.cs
+- [ ] T071 [P] Instance export, copy-link, and closure confirmation tests in tests/integration/InstanceExportTests.cs and tests/unit/InstancesViewModelTests.cs
+- [ ] T072 [P] Settings login/password, cache clearing, update check, and license display tests in tests/unit/SettingsViewModelTests.cs
+- [ ] T073 [P] Member detail dialog, pagination, and kick/ban confirmation tests in tests/integration/MemberDetailsTests.cs
+- [ ] T074 [P] Audit record detail view and export-path selection tests in tests/unit/AuditViewModelTests.cs
+- [ ] T075 [P] Setup wizard completion and validation tests in tests/unit/SetupWizardViewModelTests.cs
+- [ ] T076 [P] Clipboard and dialog service unit tests in tests/unit/InfrastructureServicesTests.cs
 
 ## Phase 4.2: Feature Completion & UI Polish
-- [ ] T075 [P] Instance export, copy join link, and closure confirmation in src/VrcGroupGuardian/ViewModels/InstancesViewModel.cs and src/VrcGroupGuardian/Views/InstancesView.xaml
-- [ ] T076 [P] Password box binding, cache clearing, update checking, and license display in src/VrcGroupGuardian/ViewModels/SettingsViewModel.cs
-- [ ] T077 [P] Member detail dialog, pagination, and kick/ban confirmations in src/VrcGroupGuardian/ViewModels/MembersViewModel.cs and src/VrcGroupGuardian/Views/MembersView.xaml
-- [ ] T078 [P] Detailed audit record dialog in src/VrcGroupGuardian/ViewModels/AuditViewModel.cs and src/VrcGroupGuardian/Views/AuditView.xaml
+- [ ] T077 [P] Instance export to CSV/JSON, copy join link command, and closure confirmation dialogs in src/VrcGroupGuardian/ViewModels/InstancesViewModel.cs and src/VrcGroupGuardian/Views/InstancesView.xaml
+- [ ] T078 [P] Password box binding, cache clearing, update checking, and license display in src/VrcGroupGuardian/ViewModels/SettingsViewModel.cs and src/VrcGroupGuardian/Views/SettingsView.xaml
+- [ ] T079 [P] Member detail dialog, pagination, search filters (including join date), and kick/ban confirmations in src/VrcGroupGuardian/ViewModels/MembersViewModel.cs and src/VrcGroupGuardian/Views/MembersView.xaml
+- [ ] T080 [P] Detailed audit record dialog and export directory selection in src/VrcGroupGuardian/ViewModels/AuditViewModel.cs and src/VrcGroupGuardian/Views/AuditView.xaml
+- [ ] T081 [P] Clipboard service implementation and integration across Instances, Members, and Audit views in src/Infrastructure/ClipboardService.cs and related view models
+- [ ] T082 [P] Confirmation dialog service and destructive action prompts across the UI in src/Infrastructure/DialogService.cs and related view models
+- [ ] T083 [P] Finish setup wizard validation and configuration save in src/ViewModels/SetupWizardViewModel.cs and src/Views/SetupWizardView.xaml
 
 ## Dependencies
 - Setup (T001-T005) before all other phases
@@ -138,7 +143,7 @@
 - Services before UI ViewModels (T046-T054)
 - Core UI before integration (T055-T062)
 - Implementation before final testing (T063-T070)
-- Additional tests (T071-T074) before feature completion (T075-T078)
+- Additional tests (T071-T076) before feature completion (T077-T083)
 
 ## Parallel Execution Examples
 
